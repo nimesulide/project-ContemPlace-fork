@@ -30,23 +30,26 @@ Delivered:
 - **Automated deploy:** `scripts/deploy.sh` runs schema → typecheck → unit tests → Worker deploy → smoke tests
 - **Voice correction:** LLM detects and silently fixes transcription errors, reports in Telegram reply
 
-## Phase 2a — MCP server (next)
+## Phase 2a — MCP server (complete)
 
-Expose the note database to AI agents via the Model Context Protocol. The primary client is Claude Code (CLI). The MCP server is a separate Cloudflare Worker with five tools:
+Exposes the note database to AI agents via the Model Context Protocol. The primary client is Claude Code (CLI). Deployed as a separate Cloudflare Worker at `mcp-contemplace.adamfreisinger.workers.dev`.
 
+Five tools:
 - **`search_notes`** — semantic search via `match_notes()` with optional type/intent/tag filters
 - **`get_note`** — full note retrieval with linked notes and entity data
 - **`list_recent`** — recent notes with optional facet filtering
 - **`get_related`** — notes connected to a given note via the `links` table
 - **`capture_note`** — full capture pipeline (embed → related lookup → LLM → store), same logic as Telegram but synchronous and source-tagged
 
-Auth: single API key (Bearer token). Deployment: separate Worker at `mcp-contemplace.<subdomain>.workers.dev`.
+Auth: single API key (Bearer token). The `search_chunks` tool is deferred to Phase 2b — it depends on the chunk generation pipeline.
 
-Also in scope once the MCP server is live: import scripts for **ChatGPT memory export** and **Obsidian vault** — standalone Node.js scripts that loop `capture_note` calls with appropriate source tags.
+`mcp/src/capture.ts` is a deliberate copy of `src/capture.ts` (Cloudflare Workers cannot share code across Worker projects without monorepo tooling). The `tests/mcp-parser.test.ts` parity tests enforce that the copies stay in sync.
+
+In scope after the MCP server is live: import scripts for **ChatGPT memory export** and **Obsidian vault** — standalone Node.js scripts that loop `capture_note` calls with appropriate source tags.
 
 See `reviews/13-mcp-plan.md` for the full implementation plan and `reviews/14-16` for specialist reviews.
 
-## Phase 2b — Gardening pipeline (after MCP)
+## Phase 2b — Gardening pipeline (next)
 
 A scheduled background process (Cloudflare Cron Trigger) that runs nightly to enrich the note graph without any user action:
 
