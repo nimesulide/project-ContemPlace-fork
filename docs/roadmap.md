@@ -49,6 +49,16 @@ In scope after the MCP server is live: import scripts for **ChatGPT memory expor
 
 See `reviews/13-mcp-plan.md` for the full implementation plan and `reviews/14-16` for specialist reviews.
 
+### Real-world test findings (2026-03-10)
+
+First live test against 6 notes via Claude Code confirmed all five tools work correctly. One configuration issue found:
+
+**Threshold mismatch** — `search_notes` returned 0 results at the default threshold (0.60). Dropping to 0.30 surfaced relevant results (scores 0.41–0.49). The root cause is that stored embeddings are metadata-augmented (`[Type: idea] [Intent: plan] [Tags: …] text`) while search queries are bare natural language. The single `MATCH_THRESHOLD` env var was calibrated for capture-time related-note lookup (higher precision needed), not for agent search (broader exploration).
+
+Fix: add `MCP_SEARCH_THRESHOLD` (default 0.35) as a separate config value used only by `handleSearchNotes`. `MATCH_THRESHOLD` (0.60) stays for `findRelatedNotes` inside `capture_note`. See `docs/decisions.md` for full analysis.
+
+**`get_related` UX note** — the tool requires a note `id`. A text-based "find notes related to this topic" lookup is a natural UX expectation. Tracked as a candidate tool (`search_related`?) for a later phase.
+
 ## Phase 2b — Gardening pipeline (next)
 
 A scheduled background process (Cloudflare Cron Trigger) that runs nightly to enrich the note graph without any user action:
