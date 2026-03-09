@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { Config } from './config';
+import type { CaptureResult } from './types';
 
 export function createOpenAIClient(config: Config): OpenAI {
   return new OpenAI({
@@ -26,4 +27,18 @@ export async function embedText(
     throw new Error('Embedding API returned no data');
   }
   return embedding;
+}
+
+/**
+ * Build a metadata-augmented string for embedding.
+ * Prepending structured metadata bakes organizational context into the vector space.
+ * The capture param is required — use embedText directly for raw (pre-LLM) embeddings.
+ */
+export function buildEmbeddingInput(text: string, capture: CaptureResult): string {
+  const parts: string[] = [];
+  parts.push(`[Type: ${capture.type}]`);
+  if (capture.intent) parts.push(`[Intent: ${capture.intent}]`);
+  if (capture.tags.length > 0) parts.push(`[Tags: ${capture.tags.join(', ')}]`);
+  parts.push(text);
+  return parts.join(' ');
 }
