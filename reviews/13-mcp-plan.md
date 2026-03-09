@@ -11,6 +11,8 @@ The capture pipeline (Telegram → Worker → Supabase) is **unchanged**. This p
 - **Gardening pipeline** — nightly similarity links, tag normalization, maturity scoring. That is Phase 2b.
 - **`search_chunks` / `match_chunks`** — the `note_chunks` table exists in the schema but is not populated until gardening runs. The `match_chunks` RPC is present but the `search_chunks` MCP tool is deferred to Phase 2b.
 - **OAuth or multi-user auth** — single API key, personal system.
+- **Read/write permission tiers** — MCP has no native concept of read-only vs read-write tools. The API key grants full access (all 5 tools). Implementing two keys (one read-only, one write) is deferred; it is not needed for a single-user personal system.
+- **`capture_structured` tool** — a tool that accepts pre-structured fields (title, body, type, intent, etc.) and skips the Haiku LLM step. Useful when a capable calling model (Sonnet 4.6) wants to structure the note itself. Deferred to the first iteration after Phase 2a is live and the usage pattern is understood.
 - **Claude.ai web integration** — not supported by the platform as of 2025.
 - **Date range filtering** — deferred to Phase 3.
 - **Pagination** — `limit` param is sufficient for personal note volumes.
@@ -29,11 +31,26 @@ Streamable HTTP (the 2025 MCP transport spec) uses a single POST endpoint. It su
 
 A stdio wrapper can be added later as a thin shim that calls the HTTP endpoint locally. That avoids duplicating business logic.
 
-**Open question for user:** What are the primary MCP clients at launch? (Claude Desktop on Mac? Cursor? Custom agent scripts?) This affects how to document the client configuration step. The implementation is transport-agnostic but the setup instructions differ.
+**Resolved:** Primary client is Claude Code (CLI). Claude Code supports remote HTTP MCP servers. Verify the exact transport config format when registering in Step 9 — if Streamable HTTP is not yet supported by the installed Claude Code version, the stdio shim (described in `reviews/15-mcp-protocol.md`) is the fallback with no server changes required.
 
-### Synchronous vs Async Capture
+### Capture model: always Haiku via OpenRouter
+
+**Decision: `capture_note` always invokes `CAPTURE_MODEL` (default `anthropic/claude-haiku-4-5`) via OpenRouter, regardless of the calling agent.**
+
+When Sonnet 4.6 (running in Claude Code) calls `capture_note`, the MCP Worker fires a second LLM call to Haiku. The Sonnet instance that triggered the tool waits ~2–4 seconds while Haiku structures the note.
+
+This is intentional for Phase 2a:
+- All notes are structured consistently regardless of entry point (Telegram, MCP, future channels)
+- The calling agent's job is to decide *what* to capture — the capture agent's job is to structure it
+- Haiku is cheaper and fast enough for the task
+
+The tradeoff: a redundant LLM call when the calling model is already capable. The deferred `capture_structured` tool (see "What This Phase Does NOT Include") addresses this without changing `capture_note`'s behavior. Do not short-circuit the Haiku call in Phase 2a — consistency matters more than optimization at this stage.
+
+### Synchronous vs async capture
 
 The Telegram Worker uses `ctx.waitUntil()` and returns 200 immediately — Telegram requires fast acknowledgment. MCP clients are blocking: they call a tool and wait for the result. The `capture_note` tool runs the full pipeline synchronously and returns the created note. Typical pipeline latency is 2–4 seconds. This is acceptable for an agent workflow.
+
+**Cloudflare Worker CPU time:** The free plan has a 10ms CPU time limit. This does *not* block synchronous capture. Network I/O (awaiting OpenRouter embed + LLM calls, awaiting Supabase inserts) does not consume CPU time — only JS execution does. The actual CPU usage for `capture_note` is well under 10ms. If Cloudflare ever flags CPU overrun, the fix is switching to the Workers Unbound billing model, not changing the code.
 
 ### Separate Worker
 
@@ -43,7 +60,17 @@ The MCP server lives in `mcp/` as a separate Cloudflare Worker (`mcp-contemplace
 - Allows independent deployment and scaling
 - Keeps `src/index.ts` (the capture worker) clean
 
-Shared code (Supabase client setup, embed helper, capture pipeline) will be duplicated or extracted. For Phase 2a, duplication is acceptable. If it grows unwieldy, a shared internal package can be introduced in Phase 3.
+### Code duplication (deliberate)
+
+Shared code — `capture.ts`, `embed.ts`, `db.ts`, `types.ts`, `config.ts` — is copied into `mcp/src/` and adapted. This is a deliberate short-term trade-off.
+
+**Maintenance implication:** if the capture pipeline changes (new field, updated schema, prompt tuning), both `src/capture.ts` and `mcp/src/capture.ts` must be updated. This is manageable at current project size. If it becomes error-prone, the fix is extracting a shared `packages/core` package in Phase 3 — not worth the monorepo overhead now.
+
+### Read/write permissions
+
+MCP has no native protocol-level concept of read-only vs read-write tools. The single `MCP_API_KEY` grants access to all 5 tools. Any holder of the key can call `capture_note` and create notes.
+
+For Phase 2a this is correct — one user, known clients, no delegation. If a future agent should have read-only access (e.g., a public search interface), implement a second key (`MCP_READ_KEY`) and check it in the auth middleware before allowing `capture_note`. Defer to Phase 3.
 
 ---
 
@@ -68,7 +95,38 @@ mcp/
     types.ts           # Shared types (can import from root or duplicate)
 ```
 
-`mcp/wrangler.toml` should define `name = "mcp-contemplace"` and declare all required env vars (non-secret ones only — secrets go via `wrangler secret put`).
+`mcp/wrangler.toml` full content:
+
+```toml
+name = "mcp-contemplace"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[vars]
+SUPABASE_URL = "https://<ref>.supabase.co"
+CAPTURE_MODEL = "anthropic/claude-haiku-4-5"
+EMBED_MODEL = "openai/text-embedding-3-small"
+MATCH_THRESHOLD = "0.60"
+
+# Secrets — set via: wrangler secret put <NAME> -c mcp/wrangler.toml
+# MCP_API_KEY
+# SUPABASE_SERVICE_ROLE_KEY
+# OPENROUTER_API_KEY
+```
+
+`mcp/src/types.ts` must define the `Env` interface matching these vars:
+
+```typescript
+export interface Env {
+  MCP_API_KEY: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  OPENROUTER_API_KEY: string;
+  CAPTURE_MODEL: string;
+  EMBED_MODEL: string;
+  MATCH_THRESHOLD: string;
+}
+```
 
 ### Step 2 — Implement Bearer auth middleware (`mcp/src/auth.ts`)
 
@@ -105,7 +163,27 @@ Required JSON-RPC methods:
 | `tools/list` | Return array of tool definitions |
 | `tools/call` | Execute a named tool with given arguments |
 
-Unrecognized methods return `{ error: { code: -32601, message: "Method not found" } }`.
+**Handling notifications vs method calls:** JSON-RPC notifications have no `id` field. The MCP client sends a `notifications/initialized` notification after receiving the `initialize` response — this has no `id` and expects no response. The dispatcher must check for missing `id` *before* routing:
+
+```typescript
+const body = await request.json() as any;
+
+// Notification — no id, no response expected
+if (body.id === undefined) {
+  return new Response(null, { status: 204 });
+}
+
+// Method call — route by method name
+switch (body.method) {
+  case "initialize": ...
+  case "tools/list": ...
+  case "tools/call": ...
+  default:
+    return jsonRpcError(body.id, -32601, "Method not found");
+}
+```
+
+If a notification is mistakenly treated as an unknown method and returned a `-32601` error, some clients will abort the session.
 
 **`initialize` response shape:**
 
@@ -126,7 +204,18 @@ Unrecognized methods return `{ error: { code: -32601, message: "Method not found
 See `reviews/16-mcp-api-design.md` for the full input/output contract for each tool. Implement:
 
 1. **`search_notes`** — embed query → `match_notes()` RPC → return ranked array
-2. **`get_note`** — validate UUID → fetch note + joined links → return full note
+2. **`get_note`** — validate UUID → fetch note → fetch links in both directions → return full note
+
+   The link query requires fetching rows where `from_id = id` OR `to_id = id`. The Supabase JS client does not support OR conditions with two `.eq()` calls. Use `.or()`:
+
+   ```typescript
+   const { data: links } = await supabase
+     .from("links")
+     .select("from_id, to_id, link_type, context, confidence, created_by")
+     .or(`from_id.eq.${id},to_id.eq.${id}`);
+   ```
+
+   Then fetch the linked note title for each row: if `from_id === id`, the linked note is `to_id`; if `to_id === id`, the linked note is `from_id`. Tag each with `direction: "outbound" | "inbound"` accordingly.
 3. **`list_recent`** — query `notes` ordered by `created_at DESC` with optional filters
 4. **`get_related`** — query `links` for both directions (from_id = id OR to_id = id), join note titles
 5. **`capture_note`** — full pipeline: embed → match_notes → LLM (system frame + capture voice) → insert note + links → return created note
