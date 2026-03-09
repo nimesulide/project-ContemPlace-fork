@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 CAPTURE_MODEL = "anthropic/claude-haiku-4-5"
 EMBED_MODEL = "openai/text-embedding-3-small"
-MATCH_THRESHOLD = "0.60"
+MATCH_THRESHOLD = "0.35"
 
 # Secrets (set via: wrangler secret put <NAME> -c mcp/wrangler.toml):
 # MCP_API_KEY

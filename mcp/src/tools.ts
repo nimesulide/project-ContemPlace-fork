@@ -33,7 +33,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         query: { type: 'string', description: 'Natural language search query, max 1000 characters' },
         limit: { type: 'number', description: 'Number of results to return (default 5, max 20)' },
-        threshold: { type: 'number', description: 'Minimum similarity score (default 0.60, range 0.0–1.0)' },
+        threshold: { type: 'number', description: 'Minimum similarity score (default 0.35, range 0.0–1.0). Notes are stored with metadata-augmented embeddings, so plain-language queries typically score 0.3–0.5 against relevant notes — above 0.5 is a strong match.' },
         filter_type: { type: 'string', enum: ['idea', 'reflection', 'source', 'lookup'] },
         filter_intent: { type: 'string', enum: ['reflect', 'plan', 'create', 'remember', 'reference', 'log'] },
         filter_tags: { type: 'array', items: { type: 'string' }, description: 'Notes must contain all listed tags' },
