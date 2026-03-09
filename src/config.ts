@@ -32,7 +32,7 @@ function requireSecret(value: string | undefined, name: string): string {
 }
 
 function parseAndValidateThreshold(value: string | undefined): number {
-  const parsed = parseFloat(value || '0.65');
+  const parsed = parseFloat(value || '0.60');
   if (isNaN(parsed) || parsed < 0 || parsed > 1) {
     throw new Error(`Invalid MATCH_THRESHOLD: "${value}" — must be a float between 0 and 1`);
   }

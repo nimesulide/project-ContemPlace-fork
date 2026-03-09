@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-ContemPlace is a cloud-hosted personal memory system. Telegram → Cloudflare Worker → structured note in Postgres (pgvector) → confirmation back to Telegram. Phase 2 adds an MCP server so AI agents can retrieve notes by semantic similarity.
+ContemPlace is a cloud-hosted personal memory system. Telegram → Cloudflare Worker → structured note in Postgres (pgvector) → confirmation back to Telegram. Phase 2 (next) adds a gardening pipeline and MCP server so AI agents can retrieve notes by semantic similarity.
 
 It is not a notes app. Notes are written by the capture agent, not the user. Users send raw input and receive confirmations. The raw input is always preserved alongside the structured note.
 
@@ -21,13 +21,23 @@ It is not a notes app. Notes are written by the capture agent, not the user. Use
 
 ## Architecture
 
-Cloudflare Workers handles the Telegram webhook. Supabase is the database only — no Edge Functions in Phase 1.
+Cloudflare Workers handles the Telegram webhook. Supabase is the database only — no Edge Functions.
 
 The capture flow is **async**: the Worker returns 200 to Telegram immediately, then processes in the background via `ctx.waitUntil()`. This eliminates Telegram retry issues and keeps the bot responsive regardless of LLM latency.
 
+**System frame / capture voice split:** The system prompt is split into two parts:
+- **System frame** (`SYSTEM_FRAME` constant in `src/capture.ts`) — structural contract: JSON schema, field enums, entity/link rules, voice correction instructions. Lives in code. Do not put stylistic rules here.
+- **Capture voice** (stored in `capture_profiles` DB table, fetched at runtime) — title style, body rules, traceability, tone, examples. User-editable without code deployment. Any capture interface (Telegram, MCP, CLI) fetches the same profile.
+
 ```
 Telegram → Cloudflare Worker → verify signature → check chat ID whitelist → dedup check → return 200
-                                └→ ctx.waitUntil(): embed → find related → LLM → DB insert → send Telegram reply
+                                └→ ctx.waitUntil():
+                                     embed raw text + fetch capture voice (parallel)
+                                     → find related notes
+                                     → LLM (system frame + capture voice)
+                                     → re-embed with metadata augmentation (fallback to raw on failure)
+                                     → DB insert (note + links)
+                                     → enrichment log + Telegram reply (parallel)
 ```
 
 ## Project Layout
@@ -36,17 +46,23 @@ Telegram → Cloudflare Worker → verify signature → check chat ID whitelist 
 src/
   index.ts           # Worker entry point (webhook handler + async dispatch)
   config.ts          # Env var reading with defaults (all model strings and thresholds live here)
-  capture.ts         # Capture agent (system prompt, LLM call, JSON parsing)
-  embed.ts           # Embedding helper
+  capture.ts         # Capture agent (SYSTEM_FRAME, buildSystemPrompt, LLM call, parseCaptureResponse exported)
+  embed.ts           # Embedding helpers (embedText, buildEmbeddingInput)
   telegram.ts        # Telegram API helpers (sendMessage, sendChatAction)
-  db.ts              # Supabase client + DB operations (insert note, match_notes RPC, dedup)
-  types.ts           # TypeScript interfaces (Telegram, capture result, DB row types)
+  db.ts              # Supabase client + DB operations (insertNote, logEnrichments, getCaptureVoice, findRelatedNotes)
+  types.ts           # TypeScript interfaces (Telegram, capture result, DB row types, Intent, Modality, Entity)
+scripts/
+  deploy.sh          # Automated 5-step deploy pipeline
 supabase/
   config.toml
   migrations/
-    20260101000000_initial_schema.sql
+    20260309000000_v2_schema.sql   # Current schema (v2 — full drop-and-recreate from v1)
+  seed/
+    seed_concepts.sql              # Initial SKOS domain concepts (run manually in SQL Editor)
 tests/
   smoke.test.ts      # Smoke tests against the deployed worker
+  parser.test.ts     # Unit tests for parseCaptureResponse (runs locally, no network)
+docs/                # Detailed documentation (architecture, capture agent, schema, decisions, roadmap)
 wrangler.toml        # Cloudflare Worker configuration
 package.json
 tsconfig.json
@@ -91,8 +107,14 @@ wrangler dev
 # Apply database migrations
 supabase db push
 
+# Run parser unit tests (local, no network)
+npx vitest run tests/parser.test.ts
+
 # Run smoke tests (against deployed worker)
-npx vitest run
+npx vitest run tests/smoke.test.ts
+
+# Typecheck
+npx tsc --noEmit
 ```
 
 ## Hard Constraints
@@ -106,8 +128,12 @@ npx vitest run
 7. **Model strings and behavioral thresholds are env vars**, read via `src/config.ts`. Never hardcode a model string at a call site.
 8. **Return 200 to Telegram immediately**, process capture in `ctx.waitUntil()`.
 9. **Always store the user's raw input** in `notes.raw_input` alongside the LLM-generated title and body.
+10. **Two-pass embedding**: first embed uses raw text (for finding related notes); second embed uses `buildEmbeddingInput()` with metadata augmentation (for storage). If the second embed fails, fall back to the raw embedding — never lose the note.
+11. **RPC functions must be in the `public` schema** with `set search_path = 'public, extensions'`. Functions in the `extensions` schema are not visible to PostgREST's `.rpc()` by default.
+12. **Stylistic prompt rules (title style, body rules, traceability) must come from `capture_profiles` table**, never hardcoded in source. Edit the DB row to tune capture behavior without redeploying.
+13. **JSONB columns (`entities`, `metadata`) contain LLM-generated content** — never interpolate their values into raw SQL strings.
 
-## Capture Logic (single mode in v1)
+## Capture Logic (v2)
 
 1. Worker receives Telegram webhook POST
 2. Verify `x-telegram-bot-api-secret-token` header — return 403 if missing/wrong
@@ -115,14 +141,15 @@ npx vitest run
 4. Check `message.chat.id` against `ALLOWED_CHAT_IDS` whitelist — return 200 silently if not allowed
 5. Dedup check: insert `update_id` into `processed_updates` — if `23505` unique violation, return 200
 6. **Return 200 to Telegram** (everything below runs in `ctx.waitUntil()`)
-7. Send `typing` action to Telegram
-8. Embed message text via OpenRouter
-9. Call `match_notes(embedding, threshold, count=5)` for related notes
-10. Call capture LLM with system prompt + raw message + related notes + today's date
-11. Parse JSON response, validate fields
-12. Insert note into `notes` with embedding and `raw_input`, insert links into `links`
-13. Send HTML-formatted confirmation to Telegram (`parse_mode: HTML`): bold title, separator line, body, italic type·tags line, optional Linked/Corrections/Source lines
-14. On any error in steps 7–13: send error message to Telegram with context, log structured JSON to console
+7. In parallel: embed raw message text, fetch capture voice from `capture_profiles`, send `typing` action
+8. Call `match_notes(embedding, threshold, count=5)` for related notes
+9. Call capture LLM with (system frame + capture voice) + raw message + related notes (with type/intent metadata) + today's date
+10. Parse JSON response, validate all 10 fields with logged fallback defaults
+11. Re-embed with metadata augmentation (`buildEmbeddingInput`). On failure, fall back to raw embedding and log `augmented_embed_fallback`
+12. Insert note into `notes` with augmented embedding, `raw_input`, `intent`, `modality`, `entities`, `corrections`, `embedded_at`; insert links into `links`
+13. In parallel: insert two `enrichment_log` rows (capture + embedding); send HTML-formatted confirmation to Telegram
+14. Telegram reply format: bold title, separator line, body, italic `type · intent · tags` line, optional Linked/Corrections/Source/Entities lines. Message capped at 4096 chars.
+15. On any error in steps 7–13: send generic error to Telegram, log full details to console
 
 ## Capture Agent Output Format
 
@@ -136,17 +163,38 @@ The LLM returns this JSON and nothing else:
   "tags": ["...", "..."],
   "source_ref": null,
   "corrections": ["garbled → corrected"] | null,
+  "intent": "reflect|plan|create|remember|reference|log",
+  "modality": "text|link|list|mixed",
+  "entities": [{"name": "...", "type": "person|place|tool|project|concept"}],
   "links": [
     { "to_id": "<uuid>", "link_type": "extends|contradicts|supports|is-example-of" }
   ]
 }
 ```
 
-Type rules: `reflection` = first-person personal insight (explicit signal required); `lookup` = investigative prompt only; `source` = external URL included; `idea` = default.
+**Type rules:** `reflection` = first-person personal insight (explicit signal required); `lookup` = investigative prompt only; `source` = external URL included; `idea` = default.
 
-Link types: `extends` = builds on/deepens; `contradicts` = challenges; `supports` = reinforces or parallel/sibling idea toward same goal; `is-example-of` = concrete instance.
+**Intent rules (6 values):** `reflect` = processing experience/feeling; `plan` = future action, aspirations, wishes; `create` = specific thing to make; `remember` = storing a fact/detail; `reference` = external content (URL present or explicitly saving someone else's work); `log` = recording what happened. `remember` vs `reference`: use `remember` when no URL, `reference` when URL present. `wish` was merged into `plan`.
 
-`corrections` = voice dictation or typo fixes applied silently to the output. Logged to Cloudflare and shown in the Telegram reply when present.
+**Type and intent are independent facets** — a `source` note can have `plan` intent, a `reflection` can have `remember` intent.
+
+**Link types:** `extends` = builds on/deepens; `contradicts` = challenges; `supports` = reinforces or parallel/sibling idea toward same goal; `is-example-of` = concrete instance.
+
+**Entity extraction:** proper nouns only, explicitly in the input — not from related notes, not from training data. Use corrected name from `corrections` field if applicable.
+
+## Schema (v2)
+
+8 tables total:
+- `notes` — core notes with 9 new v2 columns (intent, modality, entities, corrections, summary, refined_tags, categories, metadata, importance_score, maturity, archived_at, embedding, embedded_at, content_tsv)
+- `links` — 8 link types (4 capture-time + 4 gardening-time); includes context, confidence, created_by
+- `concepts` — SKOS controlled vocabulary (scheme, pref_label, alt_labels, definition, embedding)
+- `note_concepts` — junction: notes ↔ concepts
+- `note_chunks` — RAG chunks for long notes (deferred to gardening pipeline)
+- `enrichment_log` — audit trail per note per enrichment type
+- `capture_profiles` — user-editable stylistic prompt rules; seeded with 'default' profile
+- `processed_updates` — Telegram dedup
+
+RPC functions in `public` schema: `match_notes` (hybrid vector + full-text, 8 params), `match_chunks`.
 
 ## Registering the Telegram Webhook
 
@@ -163,10 +211,29 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 
 ## Phase Scope
 
-- **Phase 1 (current):** Schema (notes, links, processed_updates), Telegram bot, Cloudflare Worker with async capture, chat ID whitelist, single capture mode, confirmation replies.
-- **Phase 2 (deferred):** Assets table, MCP server, image handling, clarification loop, voice transcription, per-type capture prompts, runtime-configurable behavior.
+- **Phase 1 (complete):** Schema (notes, links, processed_updates), Telegram bot, Cloudflare Worker with async capture, chat ID whitelist, single capture mode, confirmation replies.
+- **Phase 1.5 (complete):** Schema v2 (8 tables), metadata-augmented embeddings, `intent`/`modality`/`entities` extraction, capture voice in DB, enrichment log, expanded link types, parser unit tests. Deployed and verified via smoke tests.
+- **Phase 2 (next):** Gardening pipeline (nightly similarity links, tag normalization via SKOS, chunk generation, maturity scoring), MCP server.
+- **Phase 3 (deferred):** Associative trails, type inheritance (`note_types`), location extraction.
 
-Done when: 5 real messages from Telegram produce correctly structured notes in the database with confirmations received.
+## Deploy
+
+Everything is automated. One command:
+
+```bash
+bash scripts/deploy.sh
+```
+
+**Prerequisite:** The Supabase project must be linked (`supabase link --project-ref <ref>`). All secrets must be in `.dev.vars`.
+
+The script runs in order:
+1. `supabase db push --linked` — applies pending migrations via the Supabase connection pooler (no direct port 5432 access required)
+2. `tsc --noEmit` — typecheck
+3. `vitest run tests/parser.test.ts` — 17 parser unit tests (local, no network)
+4. `wrangler deploy` — deploys the Worker
+5. `vitest run tests/smoke.test.ts` — end-to-end smoke tests against live Worker
+
+Use `--skip-smoke` to skip step 5 and test manually.
 
 ## Product Intent
 
@@ -189,3 +256,5 @@ Specialist reviews from project bootstrap live in `reviews/`. Read them before m
 - `reviews/03-integrations.md` — integration gotchas and failure modes
 - `reviews/04-schema.md` — corrected schema with full SQL
 - `reviews/05-implementation-plan.md` — sequenced build plan for Phase 1
+- `reviews/06-implementation-plan-v2.md` — Phase 1.5 implementation plan (schema + enriched capture)
+- `reviews/07-v2-schema.md` through `reviews/12-v2-testing.md` — specialist reviews for v2
