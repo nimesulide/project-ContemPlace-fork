@@ -81,6 +81,7 @@ tests/
   mcp-tools.test.ts      # Unit tests for all 5 MCP tool handlers (mocked deps, no network)
   mcp-index.test.ts      # Unit tests for MCP HTTP routing and JSON-RPC protocol
   mcp-smoke.test.ts      # Smoke tests against the live MCP Worker
+  semantic.test.ts       # Semantic correctness suite — tagging, linking, search quality (45 tests, hits live stack)
 docs/                # Detailed documentation (architecture, capture agent, schema, decisions, roadmap)
 wrangler.toml        # Telegram Worker Cloudflare config
 package.json
@@ -152,6 +153,9 @@ npx vitest run tests/mcp-auth.test.ts tests/mcp-config.test.ts tests/mcp-embed.t
 
 # Run MCP smoke tests (against live MCP Worker — requires MCP_WORKER_URL + MCP_API_KEY in .dev.vars)
 npx vitest run tests/mcp-smoke.test.ts
+
+# Run semantic correctness suite (live stack — tagging, linking, search; ~70s; cleans up after itself)
+npx vitest run tests/semantic.test.ts
 ```
 
 ## Hard Constraints
