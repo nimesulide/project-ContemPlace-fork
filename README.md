@@ -1,8 +1,12 @@
 # ContemPlace
 
-A personal memory system. Send raw thoughts to a Telegram bot — they come back structured, embedded, and linked to your prior thinking. No editing. No forms. Just capture.
+Your thoughts, stored in a database you own, accessible to any AI agent you choose to work with.
 
-The stored notes form a semantic context layer. The primary use: an AI agent (via MCP) that already knows your accumulated thinking, retrieves relevant notes by similarity, and acts as a creative partner without you ever copying prior work into a prompt.
+The core is simple: an always-on personal knowledge base built on open, commodity infrastructure — Postgres with vector search, deployed to Cloudflare. It's designed from the start to be read by agents via MCP, not by humans clicking through a UI. You send raw input from whatever interface suits you. The system structures it, embeds it, links it to prior thinking, and makes it semantically searchable. Your notes become context that any MCP-capable tool can pull from automatically.
+
+No proprietary format. No vendor lock-in. No VC-backed service that might change the rules. The stack is boring on purpose — widely-used, well-documented, free-tier friendly, nothing that requires infrastructure babysitting.
+
+The system is **modular**. The database and MCP server are the stable core. Everything else — a Telegram bot for low-friction capture, a gardening pipeline that organizes notes in the background, import tools for existing knowledge stores, a dashboard — is an optional layer you add to fit your workflow. Each module shares the same ethos: zero friction on input, agent-first retrieval, data you can always get out.
 
 ## Status
 
@@ -17,16 +21,39 @@ The stored notes form a semantic context layer. The primary use: an AI agent (vi
 
 → [All open issues](https://github.com/freegyes/project-ContemPlace/issues) · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md)
 
-## How it works
+## Philosophy
 
-You message the bot. The system:
+**You own your data.** Notes are stored in Postgres — a format you can query, export, or migrate without asking anyone's permission. Raw input is always preserved alongside the structured note. Nothing is locked in.
 
-1. Embeds your raw text and finds semantically related notes
-2. Sends everything to an LLM that structures a note — title, body, tags, type, intent, entities — and links it to related notes
-3. Stores the structured note alongside your exact raw input (never discarded)
-4. Replies with a formatted confirmation showing the note, its metadata, and any linked notes
+**Opinionated by default.** You don't manage tags, taxonomies, or relationships. You send a thought; the system handles structure. Tags, intent classifications, entity extraction, and links between notes emerge automatically. The gardening pipeline runs in the background to refine connections over time. You set it up once and don't have to think about it.
 
-The bot returns 200 to Telegram immediately and processes everything in the background. It never times out, regardless of LLM latency.
+**Agent-first retrieval.** The primary access pattern is semantic search via MCP — an AI agent finding relevant context from your notes automatically. Human-facing UIs are secondary. The value compounds as the database grows: the more you put in, the more useful the context layer becomes.
+
+**Low cost, no risk.** Cloudflare Workers free tier, Supabase free tier, OpenRouter pay-per-call with small models. The capture agent runs on Claude Haiku. The whole system costs pennies per day for regular use. No infrastructure to babysit, no startup risk.
+
+**Files-first, Obsidian-style.** Export is always possible. The data model is transparent. If you want to leave, you take your notes with you.
+
+## Modules
+
+The core — database + MCP server — is the only required piece. Everything else is optional.
+
+| Module | What it does | State |
+|---|---|---|
+| **MCP server** | Exposes the note graph to any MCP-capable agent. Five tools: search, retrieve, browse, get related, capture. | ✅ Live |
+| **Telegram capture bot** | Zero-friction note capture. Message the bot in any format — voice, text, link — and get a structured note back. | ✅ Live |
+| **Gardening pipeline** | Nightly background enrichment: similarity links, tag normalization via SKOS, chunk generation, maturity scoring. | 🔜 Phase 2b |
+| **Dashboard** | Browser-based view of your notes — search, browse, follow links, see the graph. | 💡 Planned |
+| **Obsidian import** | Pull an existing Obsidian vault into the database — making years of prior notes semantically accessible. | 💡 Planned |
+| **ChatGPT memory import** | Import your ChatGPT memory export — rescuing accumulated context from a proprietary format. | 💡 Planned |
+
+## How capture works
+
+You send a message. In the background:
+
+1. The raw text is embedded and checked for semantically related notes
+2. An LLM structures the note — title, body, tags, type, intent, entities — and links it to related notes
+3. The structured note is stored alongside your exact raw input (never discarded)
+4. A formatted confirmation is sent back showing the note, its metadata, and any links made
 
 ```
 You → Telegram → Cloudflare Worker → return 200
@@ -39,7 +66,7 @@ You → Telegram → Cloudflare Worker → return 200
                             → send confirmation to Telegram
 ```
 
-A second Worker exposes the note graph to AI agents over MCP (JSON-RPC 2.0). The same capture pipeline runs there synchronously — agents can both read and write notes.
+The same pipeline runs inside the MCP `capture_note` tool — synchronously, with a source tag. Any interface that can call the pipeline can capture notes.
 
 ## What the capture agent produces
 
@@ -58,7 +85,7 @@ Each note gets 10 fields from a single LLM pass:
 | **corrections** | Voice dictation fixes, applied silently and reported |
 | **source_ref** | URL if one was included |
 
-The body follows a strict traceability rule: every sentence must trace back to something you actually said. The agent cleans up grammar and filler but never fabricates information, adds conclusions, or pads for length.
+The body follows a strict traceability rule: every sentence must trace back to something you actually said. The agent transcribes, not interprets — no added conclusions, no padding, no fabrication.
 
 Input can come from voice dictation. The agent detects and silently corrects transcription errors, cross-referencing proper nouns against existing notes. Corrections are shown in the reply.
 
@@ -78,7 +105,7 @@ All models are configurable via environment variables. All AI calls route throug
 
 ## MCP server
 
-The MCP Worker runs at `https://mcp-contemplace.<subdomain>.workers.dev/mcp`. It exposes five tools:
+The MCP Worker exposes five tools:
 
 | Tool | What it does |
 |---|---|
@@ -150,8 +177,6 @@ Run the SKOS domain concepts seed separately in the Supabase SQL editor if you w
 ```
 
 ### 4. Deploy the Telegram capture Worker
-
-Set secrets, then deploy:
 
 ```bash
 wrangler secret put TELEGRAM_BOT_TOKEN
@@ -288,13 +313,3 @@ reviews/          Specialist review notes from project bootstrap
 | [Design decisions](docs/decisions.md) | Why this stack, key tradeoffs, lessons from real usage |
 | [Roadmap](docs/roadmap.md) | Phase history and what's next |
 | [CLAUDE.md](CLAUDE.md) | Working instructions for Claude Code — conventions, constraints, commands |
-
-## Status
-
-| Phase | Status |
-|---|---|
-| 1 — Telegram capture | ✅ Live |
-| 1.5 — Enriched capture (v2 schema, intent/entities/two-pass embedding) | ✅ Live |
-| 2a — MCP server | ✅ Live |
-| 2b — Gardening pipeline (nightly similarity links, SKOS normalization, chunks) | Planned |
-| 2c — OAuth 2.1 for Claude.ai web connector | Planned |
