@@ -56,16 +56,18 @@ The agent receives the top 5 semantically related notes (with their titles, bodi
 
 `supports` was broadened after real usage showed that sibling projects (e.g., two kitchen improvement ideas) weren't being linked because none of the original four types fit cleanly. Now `supports` covers both "provides evidence for" and "is a parallel effort toward the same goal."
 
-### Link types (gardening-time, Phase 2)
+### Link types (gardening-time)
 
-Four additional types will be assigned by the gardening pipeline, not the capture agent:
+Four additional types are assigned by the gardener Worker, not the capture agent:
 
-| Type | Source |
-|---|---|
-| `is-similar-to` | Auto-generated from vector similarity above threshold |
-| `is-part-of` | Hierarchical grouping |
-| `follows` | Temporal sequence |
-| `is-derived-from` | One note produced from another |
+| Type | Source | Status |
+|---|---|---|
+| `is-similar-to` | Auto-generated from vector similarity above threshold (0.70) | ✅ Live |
+| `is-part-of` | Hierarchical grouping | Planned |
+| `follows` | Temporal sequence | Planned |
+| `is-derived-from` | One note produced from another | Planned |
+
+`is-similar-to` links include auto-generated context from shared tags and entities, and `confidence` = cosine similarity score. Created by the gardener's similarity linker phase (clean-slate delete + reinsert each run).
 
 ## Voice correction
 

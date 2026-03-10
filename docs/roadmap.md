@@ -34,20 +34,21 @@ Delivered:
 
 Exposes the note database to AI agents via the Model Context Protocol. The primary client is Claude Code (CLI). Deployed as a separate Cloudflare Worker at `mcp-contemplace.adamfreisinger.workers.dev`.
 
-Five tools:
+Eight tools:
 - **`search_notes`** — semantic search via `match_notes()` with optional type/intent/tag filters
+- **`search_chunks`** — chunk-level semantic search via `match_chunks()` for fine-grained RAG retrieval
 - **`get_note`** — full note retrieval with linked notes and entity data
 - **`list_recent`** — recent notes with optional facet filtering
 - **`get_related`** — notes connected to a given note via the `links` table
 - **`capture_note`** — full capture pipeline (embed → related lookup → LLM → store), same logic as Telegram but synchronous and source-tagged
+- **`list_unmatched_tags`** — tags that haven't matched any SKOS concept, with frequency; for vocabulary curation
+- **`promote_concept`** — insert a new concept into the SKOS vocabulary interactively
 
-Auth: single API key (Bearer token). The `search_chunks` tool is deferred to Phase 2b — it depends on the chunk generation pipeline.
+Auth: single API key (Bearer token). `MCP_SEARCH_THRESHOLD` (default 0.35) is separate from `MATCH_THRESHOLD` (0.60) — bare query vectors score lower against metadata-augmented stored embeddings.
 
 `mcp/src/capture.ts` is a deliberate copy of `src/capture.ts` (Cloudflare Workers cannot share code across Worker projects without monorepo tooling). The `tests/mcp-parser.test.ts` parity tests enforce that the copies stay in sync.
 
 In scope after the MCP server is live: import scripts for **ChatGPT memory export** and **Obsidian vault** — standalone Node.js scripts that loop `capture_note` calls with appropriate source tags.
-
-See `reviews/13-mcp-plan.md` for the full implementation plan and `reviews/14-16` for specialist reviews.
 
 ### Real-world test findings (2026-03-10)
 
@@ -59,36 +60,51 @@ Fix: add `MCP_SEARCH_THRESHOLD` (default 0.35) as a separate config value used o
 
 **`get_related` UX note** — the tool requires a note `id`. A text-based "find notes related to this topic" lookup is a natural UX expectation. Tracked as a candidate tool (`search_related`?) for a later phase.
 
-## Phase 2b — Gardening pipeline (next) — issue #2
+## Phase 2b — Gardening pipeline (in progress) — issue #2
 
-**Before starting 2b:** run the semantic correctness test suite (issue #7) to establish a quality baseline. This validates that tagging, linking, and search are working as intended before adding the gardening layer on top.
+A separate Cloudflare Worker (`contemplace-gardener`) that enriches the note graph in the background. Runs nightly at 02:00 UTC via cron trigger, also triggerable via `POST /trigger` with Bearer auth. Sends failure alerts to Telegram.
 
-A scheduled background process (Cloudflare Cron Trigger) that runs nightly to enrich the note graph without any user action:
+Three phases run sequentially, each error-isolated:
 
-**Similarity linking** — Pairwise cosine similarity across all notes. Insert `is-similar-to` links above a threshold (~0.80) with `created_by = 'gardener'` and `confidence` = similarity score.
+### Similarity linker — delivered (PR #30, v2.1.0)
 
-**Tag normalization via SKOS** — Embed each concept's `pref_label + definition`. Map note tags to nearest concept by cosine similarity. Populate `note_concepts` and `refined_tags`.
+Pairwise cosine similarity across all notes via `find_similar_pairs` RPC (self-join). Inserts `is-similar-to` links above `GARDENER_SIMILARITY_THRESHOLD` (0.70) with `created_by = 'gardener'` and `confidence` = similarity score. Auto-generated context from shared tags and entities via `buildContext()`. Clean-slate delete + reinsert for idempotency.
 
-**Chunk generation** — Split notes exceeding ~500 tokens into overlapping ~300-token chunks. Embed each chunk and insert into `note_chunks`. Enables fine-grained RAG via `match_chunks()`.
+### SKOS tag normalization — delivered (PR #41)
 
-**Maturity scoring** — Compute `importance_score` from inbound link count, recency, and type weighting. Update `maturity` from `seedling` → `budding` → `evergreen`.
+Maps free-form note tags to the SKOS controlled vocabulary (`concepts` table). Hybrid matching: lexical match against `pref_label` + `alt_labels` first, embedding similarity fallback at `GARDENER_TAG_MATCH_THRESHOLD` (0.55). Populates `notes.refined_tags` (pref_labels only) and `note_concepts` junction. Unmatched tags logged to `enrichment_log` as `type = 'unmatched_tag'` for curation via MCP tools. Uses `batch_update_refined_tags` RPC to stay within CF Workers subrequest budget. 32 seed concepts across 4 schemes (domains, tools, people, places).
 
-Phase 2b is deliberately sequenced after the MCP server so the Obsidian and ChatGPT imports can seed the database first — gardening produces better results with more notes in the corpus.
+### Chunk generation — delivered (PR #44)
+
+Splits long notes (body > 1500 chars) into ~500–800 char chunks at paragraph boundaries, with sentence and newline fallbacks. Embeds each chunk with title + tag prefix (`{title} [{tags}]: {chunk_text}`). Body hash idempotency via SHA-256 in `enrichment_log.metadata` — only re-chunks when body content changes. Embed-first-insert-second to avoid orphan chunks. Enables `search_chunks` MCP tool for fine-grained RAG retrieval.
+
+### Subrequest budget optimization — delivered (PR #42)
+
+Reduced gardener subrequests from ~12 + 2N to ~16 fixed via two new RPC functions: `batch_update_refined_tags` (JSONB batch UPDATE) and `find_similar_pairs` (self-join replaces N individual `match_notes` calls). At 300 notes: 16 subrequests instead of 612.
+
+### Maturity/importance scoring — deferred
+
+User's mental model is emergent MOC-style graph evolution (maps of content as gravitational centers, freshness = recently linked, density = many relations). Closer to community detection than per-note scoring. Needs real graph patterns to design well. ADR recorded in `docs/decisions.md`.
+
+### Alerting and manual trigger — delivered (PRs #36, #37)
+
+Best-effort Telegram failure alerts (`sendAlert()`). Optional `POST /trigger` endpoint with Bearer auth (`GARDENER_API_KEY`). Integration test exercises the full cycle: capture → trigger → assert DB state.
 
 ### Schema infrastructure already in place
 
-The v2 schema was designed with Phase 2 in mind. These columns and tables exist but are currently unpopulated:
+The v2 schema was designed with Phase 2 in mind. These columns and tables are now partially populated by the gardener:
 
-- `notes.summary`, `notes.refined_tags`, `notes.categories`, `notes.metadata`
-- `notes.importance_score`, `notes.maturity` (defaults to `seedling`)
-- `note_chunks` table with HNSW index
-- `note_concepts` junction table
-- `concepts` table with seeded vocabulary
-- `match_chunks()` RPC function
-- `links` table supports gardening-time types (`is-similar-to`, `is-part-of`, `follows`, `is-derived-from`) with `created_by = 'gardener'`
-- `enrichment_log` supports any enrichment type string
+- `notes.refined_tags` — populated by tag normalization
+- `note_chunks` table — populated by chunk generation
+- `note_concepts` junction table — populated by tag normalization
+- `concepts` table — 32 seeded concepts with embeddings
+- `enrichment_log` — records all gardener activity with metadata
 
-No schema migration will be needed for Phase 2.
+Still unpopulated: `notes.summary`, `notes.categories`, `notes.importance_score` (defaults to NULL), `notes.maturity` (defaults to `seedling`).
+
+## Phase 2c — OAuth 2.1 (next) — issue #5
+
+Add OAuth 2.1 authentication to the MCP server for browser-based clients (Claude.ai web, ChatGPT, Cursor). Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens and Dynamic Client Registration. Static `MCP_API_KEY` kept permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
 
 ## Phase 3 — Associative trails and beyond (deferred)
 

@@ -1,14 +1,26 @@
 # Architecture
 
-ContemPlace runs as a single Cloudflare Worker that receives Telegram webhooks and processes them asynchronously. Supabase provides the database — Postgres with pgvector for semantic search. There are no Edge Functions, no queues, no background job runners. The Worker does everything.
+ContemPlace runs as three Cloudflare Workers: a **Telegram capture Worker** that receives webhooks and processes them asynchronously, an **MCP Worker** that exposes the note graph to AI agents via JSON-RPC 2.0, and a **Gardener Worker** that enriches the note graph on a nightly schedule. Supabase provides the database — Postgres with pgvector for semantic search. There are no Edge Functions, no queues, no background job runners.
 
 ## Why this shape
 
 The system needs to do four things fast: receive a message, embed it, call an LLM, and store the result. Cloudflare Workers can do all of this in a single request lifecycle using `ctx.waitUntil()` for background processing. There's no cold start penalty, the runtime is globally distributed, and the deployment is a single command.
 
-Supabase was chosen over a self-managed Postgres instance because it bundles pgvector, PostgREST (for RPC calls from the Worker), and a management dashboard — all on a free tier that's sufficient for a single-user system. The tradeoff is vendor lock-in on the database layer, but the schema is standard Postgres and could be migrated.
+Supabase was chosen over a self-managed Postgres instance because it bundles pgvector, PostgREST (for RPC calls from the Workers), and a management dashboard — all on a free tier that's sufficient for a single-user system. The tradeoff is vendor lock-in on the database layer, but the schema is standard Postgres and could be migrated.
 
-OpenRouter sits between the Worker and all AI models. This adds a hop but means the system can switch between models (or providers) by changing an environment variable. No code change, no redeployment needed. The `openai` npm package talks to OpenRouter via a `baseURL` override — the same SDK works for embeddings and chat completions.
+OpenRouter sits between the Workers and all AI models. This adds a hop but means the system can switch between models (or providers) by changing an environment variable. No code change, no redeployment needed. The `openai` npm package talks to OpenRouter via a `baseURL` override — the same SDK works for embeddings and chat completions.
+
+## Three Workers
+
+| Worker | Name | Purpose | Trigger |
+|---|---|---|---|
+| **Telegram capture** | `contemplace` | Receives Telegram webhooks, structures notes via LLM, stores in DB | Telegram webhook POST |
+| **MCP server** | `mcp-contemplace` | Exposes 8 tools to AI agents via JSON-RPC 2.0 over HTTP | HTTP POST /mcp |
+| **Gardener** | `contemplace-gardener` | Nightly enrichment: tag normalization, similarity linking, chunk generation | Cron (02:00 UTC) or POST /trigger |
+
+Each Worker is independently deployed with its own `wrangler.toml` and secrets. They share the same Supabase database and use the same `openai` SDK pattern for OpenRouter calls.
+
+Code that must be shared (capture pipeline, embedding helpers) is deliberately copied across Workers because Cloudflare Workers cannot share code across projects without monorepo tooling. Parity tests enforce that copies stay in sync.
 
 ## The async capture flow
 
@@ -59,6 +71,65 @@ Telegram sends a webhook POST for every message. The Worker must respond quickly
 
 Steps A and G use `Promise.all()` for parallelism. The rest is sequential because each step depends on the previous one's output.
 
+## MCP server
+
+The MCP Worker implements JSON-RPC 2.0 over HTTP with Bearer token authentication. It exposes 8 tools:
+
+| Tool | Operation |
+|---|---|
+| `search_notes` | Semantic search via `match_notes()` with optional facet filters |
+| `search_chunks` | Chunk-level semantic search via `match_chunks()` for fine-grained RAG |
+| `get_note` | Full note retrieval by UUID |
+| `list_recent` | Recent notes with optional filtering |
+| `get_related` | All linked notes in both directions |
+| `capture_note` | Full capture pipeline (same logic as Telegram, synchronous) |
+| `list_unmatched_tags` | Tags without SKOS concept matches, for vocabulary curation |
+| `promote_concept` | Insert new SKOS concept interactively |
+
+The search threshold (`MCP_SEARCH_THRESHOLD`, default 0.35) is lower than the capture threshold (`MATCH_THRESHOLD`, 0.60) because stored embeddings are metadata-augmented while search queries are bare natural language.
+
+## Gardener pipeline
+
+The Gardener Worker runs three phases sequentially, each error-isolated (a failure in one phase doesn't block the others):
+
+```
+ Cron trigger (02:00 UTC) or POST /trigger
+       │
+       ▼
+ ┌─────────────────────────────────┐
+ │  Phase 1: Tag normalization     │
+ │  • Fetch notes + concepts       │
+ │  • Lexical match (pref_label    │
+ │    + alt_labels) first          │
+ │  • Semantic match fallback      │
+ │  • batch_update_refined_tags()  │
+ │  • Populate note_concepts       │
+ │  • Log unmatched tags           │
+ ├─────────────────────────────────┤
+ │  Phase 2: Similarity linking    │
+ │  • find_similar_pairs() RPC     │
+ │  • Clean-slate delete + reinsert│
+ │  • Auto-context from shared     │
+ │    tags + entities              │
+ ├─────────────────────────────────┤
+ │  Phase 3: Chunk generation      │
+ │  • Fetch notes with body > 1500 │
+ │  • Body hash idempotency check  │
+ │  • Split at paragraph/sentence  │
+ │    boundaries (500–800 chars)   │
+ │  • Embed all chunks (batched)   │
+ │  • Insert chunks + log          │
+ └─────────────────────────────────┘
+       │
+       ▼  on any error
+ ┌─────────────────────────────────┐
+ │  Best-effort Telegram alert     │
+ │  (if TELEGRAM_BOT_TOKEN set)    │
+ └─────────────────────────────────┘
+```
+
+Subrequest budget is ~16 fixed (within CF Workers' 50 free-tier limit), regardless of note count, thanks to batch RPC functions (`batch_update_refined_tags`, `find_similar_pairs`).
+
 ## Two-pass embedding
 
 Every note gets embedded twice:
@@ -70,6 +141,8 @@ Every note gets embedded twice:
 The augmented embedding bakes organizational context into the vector space. Two notes about "cooking" and "woodworking" that share the intent `plan` will be slightly closer in vector space than they would be from raw text alone. This matters for downstream retrieval — an agent searching for "things the user is planning" benefits from intent being part of the vector.
 
 If the augmented embedding fails (API error, timeout), the system falls back to the raw embedding and logs an `augmented_embed_fallback` enrichment entry. The note is never lost.
+
+Chunk embeddings use a lighter prefix: `{title} [{tags}]: {chunk_text}` — tags for topic anchoring without type/intent (those are note-level concerns).
 
 The cost of double-embedding is negligible — roughly $0.00001 per note at current `text-embedding-3-small` pricing.
 
@@ -91,6 +164,7 @@ The system distinguishes between errors the user should see and errors that need
 
 - **User-facing:** A generic "Something went wrong" message sent to Telegram. Never includes stack traces, model names, or internal details.
 - **Console logs:** Full structured JSON with the error, the input that caused it, and the processing stage. Visible in the Cloudflare Workers dashboard.
+- **Gardener alerts:** Best-effort Telegram message to a configured chat ID on pipeline failure. HTML-escaped, truncated to 1000 chars, never throws.
 
 The parser (`parseCaptureResponse`) handles malformed LLM output gracefully. Each of the 10 fields has a fallback default (e.g., invalid type defaults to `idea`, missing intent defaults to `remember`). Every fallback is logged as structured JSON so prompt tuning issues can be diagnosed from logs.
 
@@ -104,5 +178,7 @@ This runs *before* the 200 response, so dedup is synchronous and guaranteed even
 
 - **Webhook verification:** Every request must include a valid `x-telegram-bot-api-secret-token` header matching the configured secret. Missing or wrong = 403.
 - **Chat ID whitelist:** Only chat IDs listed in `ALLOWED_CHAT_IDS` are processed. Others get a silent 200 (no information leak).
+- **MCP auth:** Bearer token (`MCP_API_KEY`) required on all MCP requests. Returns 401/403 on missing/wrong token.
+- **Gardener trigger auth:** Optional Bearer token (`GARDENER_API_KEY`) for the `/trigger` endpoint.
 - **Service role key:** All Supabase access uses the service role key, bypassing RLS. The anon key is never used. RLS is enabled on all tables with a `deny all` policy as defense in depth — if the anon key were ever exposed, it would have zero access.
 - **No raw SQL interpolation:** JSONB columns (`entities`, `metadata`) contain LLM-generated content and are never interpolated into SQL strings. All queries use parameterized Supabase client calls.

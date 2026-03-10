@@ -13,8 +13,8 @@ The system is **modular**. The database and MCP server are the stable core. Ever
 | Component | State |
 |---|---|
 | Telegram capture bot | ✅ Live |
-| MCP server | ✅ Live — `v2.0.0` |
-| Gardening pipeline | 🔨 In progress — similarity linker live, tag normalization next · [Phase 2b](https://github.com/freegyes/project-ContemPlace/milestone/1) |
+| MCP server | ✅ Live — 8 tools |
+| Gardening pipeline | 🔨 In progress — similarity linker, tag normalization, chunk generation live; maturity scoring deferred · [Phase 2b](https://github.com/freegyes/project-ContemPlace/milestone/1) |
 | OAuth 2.1 (Claude.ai web) | 🔜 [Phase 2c](https://github.com/freegyes/project-ContemPlace/milestone/2) |
 | Dashboard | 💡 Planned — [#12](https://github.com/freegyes/project-ContemPlace/issues/12) |
 | Import tools | 💡 Planned — [#13](https://github.com/freegyes/project-ContemPlace/issues/13), [#14](https://github.com/freegyes/project-ContemPlace/issues/14) |
@@ -39,9 +39,9 @@ The core — database + MCP server — is the only required piece. Everything el
 
 | Module | What it does | State |
 |---|---|---|
-| **MCP server** | Exposes the note graph to any MCP-capable agent. Five tools: search, retrieve, browse, get related, capture. | ✅ Live |
+| **MCP server** | Exposes the note graph to any MCP-capable agent. Eight tools: search notes, search chunks, retrieve, browse, get related, capture, list unmatched tags, promote concept. | ✅ Live |
 | **Telegram capture bot** | Zero-friction note capture. Message the bot in any format — voice, text, link — and get a structured note back. | ✅ Live |
-| **Gardening pipeline** | Nightly background enrichment: similarity links, tag normalization via SKOS, chunk generation, maturity scoring. | 🔜 Phase 2b |
+| **Gardening pipeline** | Nightly background enrichment: similarity links, SKOS tag normalization, chunk generation. Runs at 02:00 UTC, also triggerable via POST /trigger. | 🔨 In progress |
 | **Dashboard** | Browser-based view of your notes — search, browse, follow links, see the graph. | 💡 Planned |
 | **Obsidian import** | Pull an existing Obsidian vault into the database — making years of prior notes semantically accessible. | 💡 Planned |
 | **ChatGPT memory import** | Import your ChatGPT memory export — rescuing accumulated context from a proprietary format. | 💡 Planned |
@@ -105,15 +105,18 @@ All models are configurable via environment variables. All AI calls route throug
 
 ## MCP server
 
-The MCP Worker exposes five tools:
+The MCP Worker exposes eight tools:
 
 | Tool | What it does |
 |---|---|
 | `search_notes` | Semantic search by natural language query. Optional: `limit`, `threshold`, `filter_type`, `filter_intent`, `filter_tags`. |
+| `search_chunks` | Semantic search at chunk level — finds specific passages within long notes. Optional: `limit`, `threshold`. |
 | `get_note` | Fetch a single note by UUID — includes raw input, entities, and all links. |
 | `list_recent` | Most recent notes, newest first. Optional: `limit`, `filter_type`, `filter_intent`. |
 | `get_related` | All notes linked to a given note, both directions. |
 | `capture_note` | Full capture pipeline. Pass `text` and optional `source` label. Creates a real, permanent note. |
+| `list_unmatched_tags` | Tags that haven't matched any SKOS concept, with frequency. For vocabulary curation. |
+| `promote_concept` | Add a new concept to the SKOS vocabulary. For expanding the controlled vocabulary interactively. |
 
 Auth: `Authorization: Bearer <MCP_API_KEY>` header on all requests.
 
@@ -168,7 +171,7 @@ supabase link --project-ref YOUR_PROJECT_REF -p YOUR_DB_PASSWORD
 supabase db push --linked --yes
 ```
 
-The migration creates 8 tables, RLS policies, RPC functions (`match_notes`, `match_chunks`), HNSW vector indexes, and seeds the default capture voice profile.
+The migration creates 8 tables, RLS policies, RPC functions (`match_notes`, `match_chunks`, `batch_update_refined_tags`, `find_similar_pairs`), HNSW vector indexes, and seeds the default capture voice profile.
 
 Run the SKOS domain concepts seed separately in the Supabase SQL editor if you want initial concept vocabulary:
 
@@ -252,6 +255,7 @@ The gardener runs nightly at 02:00 UTC via cron trigger. You can also trigger it
 | Variable | Default | Description |
 |---|---|---|
 | `GARDENER_SIMILARITY_THRESHOLD` | `0.70` | Cosine similarity floor for `is-similar-to` links (augmented-vs-augmented comparison) |
+| `GARDENER_TAG_MATCH_THRESHOLD` | `0.55` | Cosine similarity floor for tag → concept matching |
 
 Defaults live in `src/config.ts`, `mcp/src/config.ts`, and `gardener/src/config.ts`. Override via `wrangler.toml` vars.
 
@@ -267,7 +271,11 @@ The structural contract (JSON schema, field enums, entity/link rules) lives in `
 # Unit tests — all local, no network
 npx vitest run tests/parser.test.ts \
   tests/mcp-auth.test.ts tests/mcp-config.test.ts tests/mcp-embed.test.ts \
-  tests/mcp-parser.test.ts tests/mcp-tools.test.ts tests/mcp-index.test.ts
+  tests/mcp-parser.test.ts tests/mcp-tools.test.ts tests/mcp-index.test.ts \
+  tests/gardener-similarity.test.ts tests/gardener-normalize.test.ts \
+  tests/gardener-embed.test.ts tests/gardener-config.test.ts \
+  tests/gardener-alert.test.ts tests/gardener-trigger.test.ts \
+  tests/gardener-chunk.test.ts
 
 # Typecheck
 npx tsc --noEmit
@@ -276,11 +284,14 @@ npx tsc --noEmit
 npx vitest run tests/smoke.test.ts          # Telegram Worker
 npx vitest run tests/mcp-smoke.test.ts     # MCP Worker
 
+# Integration tests — hit the live stack (requires .dev.vars)
+npx vitest run tests/gardener-integration.test.ts
+
 # Local Telegram Worker dev server
 wrangler dev
 ```
 
-232 tests total (157 MCP unit tests, 17 parser unit tests, 13 gardener similarity tests, 12 gardener config tests, 10 gardener alert tests, 13 gardener trigger tests, 6 gardener integration tests, 4 smoke suites). Smoke and integration tests create and clean up test notes automatically.
+~292 tests total across unit, integration, and smoke suites. Smoke and integration tests create and clean up test notes automatically.
 
 ## Project layout
 
@@ -296,7 +307,7 @@ src/              Telegram capture Worker
 mcp/              MCP Worker (JSON-RPC 2.0 over HTTP)
   src/
     index.ts      HTTP handler — routing, auth, JSON-RPC dispatch
-    tools.ts      All 5 tool handlers with input validation
+    tools.ts      All 8 tool handlers with input validation
     auth.ts       Bearer token auth
     config.ts     Config loading with validation
     db.ts         DB read/write functions
@@ -306,10 +317,14 @@ mcp/              MCP Worker (JSON-RPC 2.0 over HTTP)
   wrangler.toml
 gardener/         Gardener Worker (nightly enrichment pipeline)
   src/
-    index.ts      Cron-triggered entry point (scheduled export)
+    index.ts      Cron-triggered entry point — orchestrates 3 phases
+    chunk.ts      Note chunking logic (splitIntoChunks, buildChunkEmbeddingInput)
+    normalize.ts  Tag matching: lexicalMatch, semanticMatch, resolveNoteTags
     similarity.ts Link context builder (shared tags, entities)
-    db.ts         Supabase operations (clean-slate delete, fetch, insert)
+    db.ts         Supabase operations (tag norm, similarity, chunking)
+    embed.ts      Embedding helpers (batchEmbedTexts)
     alert.ts      Best-effort Telegram failure notification
+    auth.ts       Bearer token auth for /trigger endpoint
     config.ts     Config loading with threshold validation
     types.ts      TypeScript interfaces
   wrangler.toml
@@ -325,14 +340,18 @@ tests/
   mcp-config.test.ts      Unit tests: MCP config loading (14)
   mcp-embed.test.ts       Unit tests: embedding + parity with src/embed.ts (8)
   mcp-parser.test.ts      Unit tests: MCP parser parity with src/capture.ts (17)
-  mcp-tools.test.ts       Unit tests: all 5 tool handlers (61)
-  mcp-index.test.ts       Unit tests: HTTP routing + JSON-RPC protocol (32)
+  mcp-tools.test.ts       Unit tests: all 8 tool handlers (~71)
+  mcp-index.test.ts       Unit tests: HTTP routing + JSON-RPC protocol (~33)
   mcp-smoke.test.ts       Smoke tests: live MCP Worker
   gardener-similarity.test.ts  Unit tests: buildContext + UUID dedup (13)
+  gardener-normalize.test.ts   Unit tests: tag matching logic (23)
+  gardener-embed.test.ts       Unit tests: embedding parity (3)
   gardener-config.test.ts      Unit tests: gardener config loading (12)
   gardener-alert.test.ts       Unit tests: Telegram failure alerting (10)
   gardener-trigger.test.ts     Unit tests: /trigger endpoint auth + routing (13)
+  gardener-chunk.test.ts       Unit tests: note chunking logic (16)
   gardener-integration.test.ts Integration test: capture → gardener → get_related (6)
+  semantic.test.ts             Semantic correctness: tagging, linking, search quality (45)
 docs/             Architecture, schema, decisions, roadmap
 ```
 
