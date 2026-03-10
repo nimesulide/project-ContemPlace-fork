@@ -135,3 +135,70 @@ The traceability rule is an explicit prohibition. The body should be a cleaned-u
 **Why:** The user should never send a message and wonder what happened. The error message is generic ("Something went wrong"), but its presence confirms the system received and attempted to process the input. Detailed diagnostics go to logs, not to Telegram.
 
 **Source:** `reviews/01-preferences.md`
+
+## Gardener as a separate Cloudflare Worker project
+
+**Decision (2026-03-10):** The gardening pipeline lives in `gardener/` with its own `wrangler.toml`, separate from the Telegram Worker and MCP Worker.
+
+**Why:** The gardener only needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. It does not need `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `MCP_API_KEY`, or `OPENROUTER_API_KEY` (no LLM calls for similarity linking). Keeping secrets scoped to the Worker that needs them is defense in depth. The separation also follows the precedent set by `mcp/` and keeps each Worker's logs, deployments, and failure domains independent.
+
+**Tradeoff:** Three separate deployment targets to manage. Mitigated by `scripts/deploy.sh` which deploys all three in sequence.
+
+## Gardener similarity linker: clean-slate idempotency
+
+**Decision (2026-03-10):** Each gardener run begins by deleting all `is-similar-to` links with `created_by = 'gardener'`, then re-inserting from scratch.
+
+**Why:** Append-only with conflict detection leaves stale links when the threshold is raised — pairs linked at 0.70 persist even if the threshold moves to 0.80. The clean-slate approach ensures the link set always reflects the current threshold with zero reconciliation logic. At personal-system scale (hundreds to a few thousand notes), the DELETE is a trivial operation. The DELETE runs first so a mid-run crash leaves a partially-populated but not corrupted state; the next run's DELETE cleans it up.
+
+## Gardener similarity linker: link direction convention
+
+**Decision (2026-03-10):** `is-similar-to` links are stored once per pair, with the lexicographically lower UUID as `from_id`.
+
+**Why:** `is-similar-to` is semantically undirected, but the `links` table is directed. Storing both directions doubles storage and causes `get_related` to return the same note twice (once for each direction row). `fetchNoteLinks` already queries `.or('from_id.eq.${id},to_id.eq.${id}')`, so a single directional row is found from either end. The UUID-ordering convention is deterministic and applied consistently at insert time.
+
+## Gardener similarity threshold: 0.70 for augmented-vs-augmented comparison
+
+**Decision (2026-03-10):** `GARDENER_SIMILARITY_THRESHOLD` defaults to 0.70. This is calibrated for augmented-vs-augmented embedding comparison, which is distinct from the capture-time and MCP search thresholds.
+
+**Why:** The similarity linker compares stored augmented embeddings against each other (both sides have the same `[Type: X] [Intent: Y] [Tags: ...]` prefix structure). This is a tighter, more symmetric comparison than capture-time `findRelatedNotes` (raw query vs. augmented store, threshold 0.60) or MCP `search_notes` (bare natural-language query vs. augmented store, threshold 0.35).
+
+Empirical basis from 14-note live DB (issue #20): linked pairs scored 0.57–0.77 (avg 0.66); unrelated pairs peaked at 0.64. Setting the threshold at 0.70 creates clear separation while surfacing genuinely related notes that capture-time linking missed (e.g. the pegboard/lamp pair at 0.80).
+
+These three thresholds are independent and should not be conflated:
+- `MATCH_THRESHOLD` (0.60) — raw query vs. augmented store, capture-time related-note lookup
+- `MCP_SEARCH_THRESHOLD` (0.35) — bare natural-language query vs. augmented store, agent search
+- `GARDENER_SIMILARITY_THRESHOLD` (0.70) — augmented vs. augmented, nightly similarity linking
+
+## Gardener trigger model: fixed nightly cron over event-driven alternatives
+
+**Decision (2026-03-10):** The gardener runs on a fixed nightly Cron Trigger (`0 2 * * *`) rather than being triggered by note captures, accumulation thresholds, or DB events.
+
+**Why fixed cron is correct at this stage:**
+
+The system is designed for async enrichment. Capture already provides immediate context — `findRelatedNotes` runs at capture time and surfaces related notes in the Telegram reply. Similarity links from the gardener are a lower-urgency, corpus-wide signal. A 24-hour lag is acceptable for that use case.
+
+Fixed cron and clean-slate idempotency are a natural pair. The gardener always re-scans everything and rebuilds from scratch. That property only makes sense with a periodic batch model. Event-driven triggering per capture would require switching to incremental per-note processing — dropping clean-slate, adding a cursor, and handling race conditions between concurrent triggers. That's a different and more complex architecture, not a better one.
+
+At personal scale, the cost of "wasted" runs on days with no new notes is zero — the run takes a few seconds and costs nothing.
+
+**Why alternatives were rejected:**
+
+- **Per-capture triggering** — the capture pipeline already runs `findRelatedNotes` for immediate linking. Triggering a full corpus re-scan after every note is O(N) re-scans per session. It also breaks clean-slate by requiring incremental processing.
+- **Accumulation threshold ("run when N new notes exist")** — Cloudflare doesn't support conditional cron triggers natively. You'd still poll via cron and add a short-circuit check at the top. Worth adding as a guard once runs get long enough to matter; not worth it now.
+- **Supabase DB webhooks** — same problem as per-capture triggering, with added complexity (pg_net, HTTP calls from within Postgres, network reliability concerns).
+- **Cloudflare Queues** — proper decoupling with batching and retries, but fundamentally changes the model from "nightly full re-scan" to "incremental per-note processing." Worth considering if the system grows to high-volume or multi-user. Not appropriate now.
+
+**Where fixed cron breaks down:**
+
+1. **Bulk imports** (Obsidian vault, ChatGPT export) — after importing hundreds of notes at once, waiting until 2am is unacceptable. The fix is a `/trigger` HTTP endpoint on the gardener Worker (issue #32), not a different trigger model. One manual call after the import.
+2. **Scale ceiling** — when the per-note RPC approach hits ~200–300 notes and runs approach 30 seconds, incremental processing (cursor on `created_at`, only process notes newer than last run) becomes necessary. At that point a smarter trigger model makes more sense. That's a separate problem from what we're solving now.
+
+**Future optimization (not yet implemented):** A lightweight `COUNT(notes WHERE created_at > last_gardener_run)` guard at the top of each run — skip the full scan if nothing is new. Worth adding once a `gardening_runs` table exists and runs get long enough that short-circuiting matters.
+
+## Gardener similarity linker: per-note RPC approach with known scale ceiling
+
+**Decision (2026-03-10):** The similarity linker calls `match_notes` RPC once per note (per-note ANN approach) rather than a SQL self-join or in-memory pairwise comparison.
+
+**Why:** At 14 notes (~700ms), and realistically up to ~200 notes (~10s), the per-note RPC approach is within the 30s Cloudflare Worker CPU limit and reuses the existing `match_notes` function with no new SQL migrations. In-memory pairwise computation breaks at ~100–300 notes due to the O(N²) operation count against the 30s CPU wall.
+
+**Scale ceiling:** ~200–300 notes. When the note corpus approaches this size, `findSimilarNotes()` in `gardener/src/db.ts` should be replaced with a single SQL self-join function (`find_similar_pairs(threshold, offset, limit)`) — one round-trip instead of N. A TODO comment marks this location in the code. No other code changes are required.
