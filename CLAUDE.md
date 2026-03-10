@@ -80,7 +80,7 @@ supabase/
   migrations/
     20260309000000_v2_schema.sql   # Current schema (v2 — full drop-and-recreate from v1)
   seed/
-    seed_concepts.sql              # Initial SKOS domain concepts (run manually in SQL Editor)
+    seed_concepts.sql              # SKOS starter vocabulary (~30 concepts, 4 schemes — run manually in SQL Editor)
 tests/
   parser.test.ts              # Unit tests for src/capture.ts parseCaptureResponse (17 tests, no network)
   smoke.test.ts               # Smoke tests against the live Telegram Worker
@@ -299,7 +299,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 - **Phase 1 (complete):** Schema (notes, links, processed_updates), Telegram bot, Cloudflare Worker with async capture, chat ID whitelist, single capture mode, confirmation replies.
 - **Phase 1.5 (complete):** Schema v2 (8 tables), metadata-augmented embeddings, `intent`/`modality`/`entities` extraction, capture voice in DB, enrichment log, expanded link types, parser unit tests. Deployed and verified via smoke tests.
 - **Phase 2a (complete):** MCP server — separate Cloudflare Worker exposing 5 tools (`search_notes`, `get_note`, `list_recent`, `get_related`, `capture_note`) over JSON-RPC 2.0. Bearer token auth. 157 local unit tests + 24 smoke tests, all passing. Tagged `v2.0.0`.
-- **Phase 2b (next):** Gardening pipeline — nightly similarity links, tag normalization via SKOS, chunk generation, maturity scoring. Tracked in GitHub issue #2.
+- **Phase 2b (in progress):** Gardening pipeline — nightly similarity linker (deployed), SKOS tag normalization (designed, not yet implemented), chunk generation, maturity scoring. Tracked in GitHub issue #2.
 - **Phase 3 (deferred):** Associative trails, type inheritance (`note_types`), location extraction.
 
 ## Deploy
