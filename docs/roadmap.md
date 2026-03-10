@@ -106,6 +106,22 @@ Still unpopulated: `notes.summary`, `notes.categories`, `notes.importance_score`
 
 Add OAuth 2.1 authentication to the MCP server for browser-based clients (Claude.ai web, ChatGPT, Cursor). Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens and Dynamic Client Registration. Static `MCP_API_KEY` kept permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
 
+## Smart Capture Router (in design) — issue #27
+
+The capture pipeline currently handles one input type: text → single structured note. The smart capture router is an architectural evolution where the pipeline detects what kind of input it received and dispatches to the right processing strategy. The user's experience stays the same — toss anything in, forget about it — but the system gets smarter about what it produces.
+
+Planned input handlers:
+- **Short note** — current Haiku pipeline, unchanged
+- **URL/link** — fetch content, cross-reference existing notes, build a reference note with real context
+- **Brain dump** — long stream-of-consciousness input routed to a more capable model that decomposes it into atomic ideas, each captured through the standard pipeline
+- **List** — individual items extracted as separate notes
+
+**Design principle driving this:** The user must never think about the system itself. They capture freely, trust the DB will contain it in an easily retrievable, useful manner.
+
+**Research finding:** No shipping PKM product auto-splits at capture time. The industry converged on smarter retrieval or user-initiated splitting. ContemPlace's approach — automatic routing with specialized handlers that all produce standard atomic notes — is novel. The router classifies cheaply (rules first, then lightweight LLM if needed) and dispatches to handlers that may use different models at different costs.
+
+**Status:** Architecture direction decided. Open design questions documented in issue #27 and `docs/decisions.md`. Implementation not started. This is likely its own phase.
+
 ## Phase 3 — Associative trails and beyond (deferred)
 
 **Associative trails** — Curated or auto-generated sequences of notes that tell a story or trace a line of thinking. The `trails` and `trail_steps` tables were designed but not created in v2.

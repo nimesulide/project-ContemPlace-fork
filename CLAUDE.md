@@ -345,6 +345,8 @@ Use `--skip-smoke` to skip step 5 and test manually.
 
 ## Product Intent
 
+**Core principle:** The user must never think about the system itself. They are free to think what they think and capture it anytime, anywhere, easily, without stressing about administration, routing, or what happens on the other side. They trust that the DB will contain it in an easily retrievable, useful manner. This is the foundational design principle — every architectural decision about capture evaluates against it.
+
 ContemPlace is an always-on place to capture unedited thoughts and notes via low-friction communication interfaces (Telegram in Phase 1, potentially Slack, email, voice, web in the future). The user sends raw thinking without worrying about structure or formatting. The system stores it fast, structures it automatically, and never asks the user to clarify or edit.
 
 The stored notes become a semantic context layer for downstream use. The primary use case: inviting an LLM agent (via MCP in Phase 2) to act as a creative review partner, research collaborator, or thinking companion — with access to the user's accumulated notes, retrievable by semantic similarity. The agent finds relevant context automatically. The user never has to copy-paste prior thinking into a prompt.

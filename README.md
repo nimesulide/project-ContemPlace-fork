@@ -17,6 +17,7 @@ The system is **modular**. The database and MCP server are the stable core. Ever
 | Gardening pipeline | 🔨 In progress — similarity linker, tag normalization, chunk generation live; maturity scoring deferred · [Phase 2b](https://github.com/freegyes/project-ContemPlace/milestone/1) |
 | OAuth 2.1 (Claude.ai web) | 🔜 [Phase 2c](https://github.com/freegyes/project-ContemPlace/milestone/2) |
 | Dashboard | 💡 Planned — [#12](https://github.com/freegyes/project-ContemPlace/issues/12) |
+| Smart capture router | 💡 Design phase — input-type detection + specialized handlers · [#27](https://github.com/freegyes/project-ContemPlace/issues/27) |
 | Import tools | 💡 Planned — [#13](https://github.com/freegyes/project-ContemPlace/issues/13), [#14](https://github.com/freegyes/project-ContemPlace/issues/14) |
 
 → [All open issues](https://github.com/freegyes/project-ContemPlace/issues) · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md)
@@ -25,7 +26,7 @@ The system is **modular**. The database and MCP server are the stable core. Ever
 
 **You own your data.** Notes are stored in Postgres — a format you can query, export, or migrate without asking anyone's permission. Raw input is always preserved alongside the structured note. Nothing is locked in.
 
-**Opinionated by default.** You don't manage tags, taxonomies, or relationships. You send a thought; the system handles structure. Tags, intent classifications, entity extraction, and links between notes emerge automatically. The gardening pipeline runs in the background to refine connections over time. You set it up once and don't have to think about it.
+**You never think about the system.** You send a thought; the system handles structure. Tags, intent classifications, entity extraction, and links between notes emerge automatically. The gardening pipeline runs in the background to refine connections over time. You set it up once and don't have to think about it. The capture layer is designed to grow smarter over time — recognizing what kind of input it received and processing it accordingly — so you never have to stress about format, routing, or administration.
 
 **Agent-first retrieval.** The primary access pattern is semantic search via MCP — an AI agent finding relevant context from your notes automatically. Human-facing UIs are secondary. The value compounds as the database grows: the more you put in, the more useful the context layer becomes.
 
@@ -45,6 +46,7 @@ The core — database + MCP server — is the only required piece. Everything el
 | **Dashboard** | Browser-based view of your notes — search, browse, follow links, see the graph. | 💡 Planned |
 | **Obsidian import** | Pull an existing Obsidian vault into the database — making years of prior notes semantically accessible. | 💡 Planned |
 | **ChatGPT memory import** | Import your ChatGPT memory export — rescuing accumulated context from a proprietary format. | 💡 Planned |
+| **Smart capture router** | Automatic input-type detection: short notes, URLs, brain dumps, lists each get specialized processing. The user never thinks about routing. | 💡 Design phase |
 
 ## How capture works
 

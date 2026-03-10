@@ -63,7 +63,7 @@ Four additional types are assigned by the gardener Worker, not the capture agent
 | Type | Source | Status |
 |---|---|---|
 | `is-similar-to` | Auto-generated from vector similarity above threshold (0.70) | ✅ Live |
-| `is-part-of` | Hierarchical grouping | Planned |
+| `is-part-of` | Hierarchical grouping — planned for brain dump splitting (sibling notes from same input) | Planned |
 | `follows` | Temporal sequence | Planned |
 | `is-derived-from` | One note produced from another | Planned |
 

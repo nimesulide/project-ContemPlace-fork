@@ -353,6 +353,41 @@ The `metadata` JSONB column on `enrichment_log` (added in `20260310000000_tag_no
 
 **Observation from validation:** The capture agent condenses long inputs — a 1918-char raw input produced a 901-char body. The body rules ("1-5 sentences, atomic") inherently limit body length. Chunk generation will mostly apply to future imported notes or manually edited notes with longer bodies, not Telegram captures. This reinforces the decision to defer capture-time splitting.
 
+## Core product principle: invisible system, frictionless capture
+
+**Decision (2026-03-10):** Established as a foundational product principle, not a feature requirement.
+
+> The user must never think about the system itself. They are free to think what they think and capture it anytime, anywhere, easily, without stressing about administration, routing, or what happens on the other side. They trust that the DB will contain it in an easily retrievable, useful manner.
+
+**Implications:** The capture pipeline must grow to handle diverse input types (short notes, URLs, brain dumps, lists, images) without requiring the user to label, categorize, prefix, or route their input. The system identifies what it received and processes it accordingly. Every route produces well-formed atomic notes. The user's experience is always the same: toss it in, forget about it.
+
+## Smart Capture Router: reframing brain dump splitting as input-type routing
+
+**Decision (2026-03-10):** Brain dump splitting (issue #27) is not a standalone feature. It is one handler within a broader architectural layer — a smart capture router that detects input type and dispatches to specialized processing strategies.
+
+**Why:** Research showed no shipping PKM product auto-splits at capture time. The industry converged on either smarter retrieval (making monolithic notes work) or user-initiated splitting (Obsidian Note Refactor pattern). But the user's real need is broader: the capture pipeline should handle *anything* thrown at it — a quick thought, a YouTube link, a 15-minute voice ramble, a grocery list — and produce useful atomic notes without user intervention.
+
+**Architecture direction:**
+- **Classification** (cheap: regex for URLs, length threshold for brain dumps, rules first)
+- **Dispatch** to specialized handlers:
+  - Short note → current Haiku pipeline
+  - URL → fetch content, cross-ref existing notes, create reference note
+  - Brain dump → more capable model (configurable, e.g. Sonnet) decomposes into atomic ideas, each re-enters standard capture
+  - List → extract items as separate notes
+- **Every handler** produces notes through the standard pipeline (embed, link, store)
+- **Database stays consistent** — every row is a well-formed note regardless of which route produced it
+
+**Scope:** This is a significant architectural evolution, likely its own phase. Build router scaffolding + brain dump handler first as proof-of-concept, then add URL handler, then generalize. Not a quick enhancement.
+
+**Constraints identified:**
+- CF Workers subrequest budget (50 free tier): brain dump route with 5 notes ≈ 20-25 subrequests. Feasible but bounded.
+- Model cost: Sonnet ~10x Haiku. Acceptable for personal system with few brain dumps per week.
+- Latency: brain dump route may take 15-25 seconds. All in `ctx.waitUntil()` — acceptable.
+- Sibling note grouping: `metadata.split_group_id` + `is-part-of` links. No schema migration needed.
+- Both Telegram and MCP `capture_note` should use the same router.
+
+**What this supersedes:** The earlier decision "Chunk generation vs capture-time splitting: different problems" remains valid — chunks fix retrieval granularity, splitting fixes graph identity. But capture-time splitting is now part of the router architecture, not a standalone concern. The `decompose_note` MCP tool idea is also subsumed — the router handles decomposition at capture time with a capable model, rather than requiring a post-hoc MCP call.
+
 ## match_chunks RPC: must DROP before CREATE when changing return type
 
 **Decision (2026-03-10):** `CREATE OR REPLACE FUNCTION` cannot change the return type of an existing function. When extending return columns, `DROP FUNCTION IF EXISTS` must precede `CREATE FUNCTION`.

@@ -174,6 +174,12 @@ Telegram can deliver the same webhook multiple times. The `processed_updates` ta
 
 This runs *before* the 200 response, so dedup is synchronous and guaranteed even if the background processing fails.
 
+## Future direction: Smart Capture Router
+
+The current capture pipeline handles one input type: text in → single note out. The planned evolution (issue #27) is a routing layer that detects input type and dispatches to specialized handlers — short notes use the current cheap/fast Haiku pipeline, URLs trigger content fetching and reference note creation, brain dumps route to a more capable model for decomposition into atomic ideas, lists get item-level extraction. Every handler produces standard notes through the same embed → store → link pipeline.
+
+This is in design, not implemented. See `docs/decisions.md` for the ADR and issue #27 for the full design context.
+
 ## Security boundaries
 
 - **Webhook verification:** Every request must include a valid `x-telegram-bot-api-secret-token` header matching the configured secret. Missing or wrong = 403.
