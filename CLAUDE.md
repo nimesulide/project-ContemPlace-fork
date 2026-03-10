@@ -102,7 +102,6 @@ docs/                # Detailed documentation (architecture, capture agent, sche
 wrangler.toml        # Telegram Worker Cloudflare config
 package.json
 tsconfig.json
-reviews/             # Specialist review notes from project bootstrap (do not delete)
 ```
 
 ## Environment Variables
@@ -431,12 +430,3 @@ When a phase PR merges:
 
 Labels are managed via `gh label create` — no UI required.
 
-## Review Trail
-
-Specialist reviews from project bootstrap live in `reviews/`. Read them before making architectural decisions. Key files:
-- `reviews/02-security.md` — secrets management, webhook verification, RLS audit
-- `reviews/03-integrations.md` — integration gotchas and failure modes
-- `reviews/04-schema.md` — corrected schema with full SQL
-- `reviews/05-implementation-plan.md` — sequenced build plan for Phase 1
-- `reviews/06-implementation-plan-v2.md` — Phase 1.5 implementation plan (schema + enriched capture)
-- `reviews/07-v2-schema.md` through `reviews/12-v2-testing.md` — specialist reviews for v2
