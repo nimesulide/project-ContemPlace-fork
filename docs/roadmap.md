@@ -59,7 +59,9 @@ Fix: add `MCP_SEARCH_THRESHOLD` (default 0.35) as a separate config value used o
 
 **`get_related` UX note** — the tool requires a note `id`. A text-based "find notes related to this topic" lookup is a natural UX expectation. Tracked as a candidate tool (`search_related`?) for a later phase.
 
-## Phase 2b — Gardening pipeline (next)
+## Phase 2b — Gardening pipeline (next) — issue #2
+
+**Before starting 2b:** run the semantic correctness test suite (issue #7) to establish a quality baseline. This validates that tagging, linking, and search are working as intended before adding the gardening layer on top.
 
 A scheduled background process (Cloudflare Cron Trigger) that runs nightly to enrich the note graph without any user action:
 

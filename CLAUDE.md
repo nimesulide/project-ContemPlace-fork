@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-ContemPlace is a cloud-hosted personal memory system. Telegram → Cloudflare Worker → structured note in Postgres (pgvector) → confirmation back to Telegram. Phase 2 (next) adds a gardening pipeline and MCP server so AI agents can retrieve notes by semantic similarity.
+ContemPlace is a cloud-hosted personal memory system. Telegram → Cloudflare Worker → structured note in Postgres (pgvector) → confirmation back to Telegram. An MCP server (Phase 2a, complete) exposes the note graph to AI agents via semantic search. Phase 2b (next) adds a gardening pipeline for nightly enrichment.
 
 It is not a notes app. Notes are written by the capture agent, not the user. Users send raw input and receive confirmations. The raw input is always preserved alongside the structured note.
 
@@ -250,7 +250,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 
 - **Phase 1 (complete):** Schema (notes, links, processed_updates), Telegram bot, Cloudflare Worker with async capture, chat ID whitelist, single capture mode, confirmation replies.
 - **Phase 1.5 (complete):** Schema v2 (8 tables), metadata-augmented embeddings, `intent`/`modality`/`entities` extraction, capture voice in DB, enrichment log, expanded link types, parser unit tests. Deployed and verified via smoke tests.
-- **Phase 2a (complete):** MCP server — separate Cloudflare Worker exposing 5 tools (`search_notes`, `get_note`, `list_recent`, `get_related`, `capture_note`) over JSON-RPC 2.0. Bearer token auth. 140 local unit tests, plus smoke tests against the live Worker.
+- **Phase 2a (complete):** MCP server — separate Cloudflare Worker exposing 5 tools (`search_notes`, `get_note`, `list_recent`, `get_related`, `capture_note`) over JSON-RPC 2.0. Bearer token auth. 157 local unit tests + 24 smoke tests, all passing. Tagged `v2.0.0`.
 - **Phase 2b (next):** Gardening pipeline — nightly similarity links, tag normalization via SKOS, chunk generation, maturity scoring. Tracked in GitHub issue #2.
 - **Phase 3 (deferred):** Associative trails, type inheritance (`note_types`), location extraction.
 
@@ -322,8 +322,8 @@ This repo uses a branch-per-feature workflow with semantic version tags. **Alway
 
 **Issues:**
 - Open a GitHub Issue before starting significant work. Reference it in commit messages with `refs #<n>`.
-- Phase 2 is tracked in issues #2 (gardening pipeline) and #3 (MCP server).
-- Labels: `enhancement` for features, `bug` for bugs, `phase-2` / `phase-3` for roadmap items.
+- Active phase tracking: #2 (gardening pipeline / Phase 2b), #5 (OAuth / Phase 2c).
+- See Issue Management section below for the full label taxonomy and issue index.
 
 ## Issue Management
 
@@ -343,8 +343,6 @@ GitHub Issues are the primary layer for tracking everything: bugs, design questi
 | `docs` | Documentation, README, contributor guide |
 | `phase-2a/2b/2c/phase-3` | Phase scoping |
 
-> **Note:** Labels `question`, `test`, `security`, `product`, `module`, `docs`, `phase-2a`, `phase-2b`, `phase-2c` need to be created in the repo. Until then, each issue body notes the intended label in a "Labels to add" line.
-
 ### Workflow during a session
 
 1. Bug discovered during testing → `gh issue create` or create via Claude Code → label `bug` → keep going
@@ -352,26 +350,26 @@ GitHub Issues are the primary layer for tracking everything: bugs, design questi
 3. New module idea → create issue with `module` + `enhancement` → keep going
 4. At the end of a session: review open issues, close anything resolved, tag new ones with phase labels
 
-### What currently exists (as of 2026-03-10)
+### Open issues (as of 2026-03-10)
 
-| # | Title | Type |
+| # | Title | Labels |
 |---|---|---|
 | #2 | Gardening pipeline | enhancement, phase-2 |
-| #3 | MCP server (Phase 2a) | enhancement, phase-2 |
 | #5 | OAuth 2.1 for Claude.ai web connector | enhancement, phase-2 |
-| #6 | PR: Phase 2a MCP server | PR (open) |
-| #7 | Semantic correctness test suite | test |
+| #7 | Semantic correctness test suite | test, enhancement, phase-2 |
 | #8 | Multi-idea inputs | question |
 | #9 | Bare link capture | question |
 | #10 | Brain dump capture | question |
 | #11 | Capture pipeline variation by source | question |
-| #12 | Dashboard module | module |
-| #13 | Obsidian import module | module |
-| #14 | ChatGPT memory import module | module |
+| #12 | Dashboard module | module, enhancement |
+| #13 | Obsidian import module | module, enhancement |
+| #14 | ChatGPT memory import module | module, enhancement |
 | #15 | Onboarding: personal context seeding | enhancement, question |
 | #16 | MCP data access privacy | security |
-| #17 | Open source deploy guide + contributor onboarding | docs |
+| #17 | Open source deploy guide + contributor onboarding | docs, enhancement |
 | #18 | Product vision: modular open PKM | product |
+
+Closed: #3 (MCP server, merged v2.0.0), #6 (Phase 2a PR).
 
 ## Review Trail
 
