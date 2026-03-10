@@ -325,6 +325,54 @@ This repo uses a branch-per-feature workflow with semantic version tags. **Alway
 - Phase 2 is tracked in issues #2 (gardening pipeline) and #3 (MCP server).
 - Labels: `enhancement` for features, `bug` for bugs, `phase-2` / `phase-3` for roadmap items.
 
+## Issue Management
+
+GitHub Issues are the primary layer for tracking everything: bugs, design questions, module ideas, product thinking, test plans, security concerns. The rule is simple: **when something comes up during a session, open an issue immediately, then keep going.** Never "I'll remember to note that later."
+
+### Label taxonomy
+
+| Label | When to use |
+|---|---|
+| `bug` | Something is broken or wrong |
+| `enhancement` | New feature or improvement |
+| `question` | Open design decision, unknown, thing to think through — not necessarily actionable yet |
+| `test` | Test cases to write, behavioral validation, quality verification |
+| `security` | Auth, privacy, data exposure concerns |
+| `product` | Product vision, principles, what-is-this questions |
+| `module` | A new optional interaction layer or import tool |
+| `docs` | Documentation, README, contributor guide |
+| `phase-2a/2b/2c/phase-3` | Phase scoping |
+
+> **Note:** Labels `question`, `test`, `security`, `product`, `module`, `docs`, `phase-2a`, `phase-2b`, `phase-2c` need to be created in the repo. Until then, each issue body notes the intended label in a "Labels to add" line.
+
+### Workflow during a session
+
+1. Bug discovered during testing → `gh issue create` or create via Claude Code → label `bug` → keep going
+2. Design question surfaces → create issue with `question` label → keep going
+3. New module idea → create issue with `module` + `enhancement` → keep going
+4. At the end of a session: review open issues, close anything resolved, tag new ones with phase labels
+
+### What currently exists (as of 2026-03-10)
+
+| # | Title | Type |
+|---|---|---|
+| #2 | Gardening pipeline | enhancement, phase-2 |
+| #3 | MCP server (Phase 2a) | enhancement, phase-2 |
+| #5 | OAuth 2.1 for Claude.ai web connector | enhancement, phase-2 |
+| #6 | PR: Phase 2a MCP server | PR (open) |
+| #7 | Semantic correctness test suite | test |
+| #8 | Multi-idea inputs | question |
+| #9 | Bare link capture | question |
+| #10 | Brain dump capture | question |
+| #11 | Capture pipeline variation by source | question |
+| #12 | Dashboard module | module |
+| #13 | Obsidian import module | module |
+| #14 | ChatGPT memory import module | module |
+| #15 | Onboarding: personal context seeding | enhancement, question |
+| #16 | MCP data access privacy | security |
+| #17 | Open source deploy guide + contributor onboarding | docs |
+| #18 | Product vision: modular open PKM | product |
+
 ## Review Trail
 
 Specialist reviews from project bootstrap live in `reviews/`. Read them before making architectural decisions. Key files:
