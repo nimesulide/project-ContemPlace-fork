@@ -411,9 +411,12 @@ Each layer owns a specific type of information. **Never duplicate across layers*
 | **GitHub Issues** | Everything in-flight: bugs, questions, ideas, design explorations. When resolved, close with a comment explaining the outcome. | Continuously — during every session |
 | **GitHub Milestones** | Phase-level progress. Issues attach to the milestone they belong to. Real-time view without any file needing updating. | When issues open/close |
 | **`docs/decisions.md`** | Architecture Decision Records (ADRs). Timestamped, immutable. When a decision changes, add a new entry — never edit old ones. | At decision time |
-| **`docs/roadmap.md`** | Narrative of what each phase delivered. Updated once at phase completion, not continuously. | At phase close |
+| **`docs/roadmap.md`** | Narrative of what each phase delivered and what's next. | When a feature ships or a phase closes |
+| **`docs/schema.md`** | All tables, RPC functions, indexes, columns. | When schema or RPC functions change |
+| **`docs/architecture.md`** | Workers, data flow, embedding strategy, error handling. | When architecture changes |
+| **`docs/capture-agent.md`** | Classification taxonomy, linking logic, voice correction. | When capture behavior changes |
 | **`CLAUDE.md`** | Stable AI context: architecture, hard constraints, key files, conventions. No current state, no issue indexes, no phase status. | When architecture or conventions change |
-| **`README.md`** | Front door: what it is, status table (links out to milestones/issues), quick start. Almost never changes. | At phase close |
+| **`README.md`** | Front door: status table, tool list, test count, project layout, quick start. | When any user-visible surface changes |
 
 ### Rules
 
@@ -421,13 +424,15 @@ Each layer owns a specific type of information. **Never duplicate across layers*
 2. **GitHub is the single source of truth for status.** Phase progress → milestones. Open questions → issues. Never mirror these into a file.
 3. **ADRs are immutable.** Add a new entry when a decision changes; never update old ones. The timestamp matters.
 4. **When something comes up during a session** — bug, question, idea, concern — open an issue immediately, then keep going. Never defer to "I'll note that later."
-5. **Proactive housekeeping at every organic breakpoint.** After completing a PR, merging, closing an issue, or finishing a logical chunk of work — automatically do the documentation sweep before moving on:
+5. **Documentation is part of the deliverable, not a follow-up task.** A feature is not done until the docs reflect it. Code changes without corresponding doc updates are incomplete work — the same as shipping without tests. This applies to every PR, not just phase closings.
+6. **Proactive housekeeping at every organic breakpoint.** After completing a PR, merging, closing an issue, or finishing a logical chunk of work — automatically do the documentation sweep before moving on. Do not ask whether to do this. It is always expected:
+   - Update `docs/` files that describe anything touched by the change (`architecture.md`, `schema.md`, `capture-agent.md`, `roadmap.md`)
+   - Update `README.md` if the status table, tool list, test count, project layout, or quick start is affected
+   - Update `CLAUDE.md` if architecture, constraints, file layout, commands, or conventions changed
+   - Record any new architectural decisions in `docs/decisions.md`
    - Comment on relevant GitHub issues with outcomes or status updates
-   - Record any new decisions in `docs/decisions.md`
    - Close resolved issues with a resolution comment
-   - Update `README.md` if the status table or quick start is stale
    - Clean up stale branches
-   - Do not ask whether to do this. It is always expected.
 
 ### Phase-close ritual
 
