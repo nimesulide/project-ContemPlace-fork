@@ -9,13 +9,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "openai": "^4",
-    "@supabase/supabase-js": "^2"
+    "@supabase/supabase-js": "^2",
+    "openai": "^4"
   },
   "devDependencies": {
-    "wrangler": "^3",
     "@cloudflare/workers-types": "^4",
     "typescript": "^5",
-    "vitest": "^3"
+    "vitest": "^3",
+    "wrangler": "^4.71.0"
   }
 }
