@@ -2,11 +2,11 @@
 
 Your thoughts, stored in a database you own, accessible to any AI agent you choose to work with.
 
-The core is simple: an always-on personal knowledge base built on open, commodity infrastructure — Postgres with vector search, deployed to Cloudflare. It's designed from the start to be read by agents via MCP, not by humans clicking through a UI. You send raw input from whatever interface suits you. The system structures it, embeds it, links it to prior thinking, and makes it semantically searchable. Your notes become context that any MCP-capable tool can pull from automatically.
+The core is a database and an MCP surface. That's the product — everything else is a module. Any MCP-capable agent can read from and write to your knowledge base directly. You don't need a special app. You send raw input from whatever interface suits you — a Telegram bot, Claude CLI, a custom script, anything that can call MCP. The system structures it, embeds it, links it to prior thinking, and makes it semantically searchable. A gardening pipeline runs in the background to normalize, connect, and chunk your notes so retrieval keeps getting better. Your notes become context that any agent can pull from automatically.
 
 No proprietary format. No vendor lock-in. No VC-backed service that might change the rules. The stack is boring on purpose — widely-used, well-documented, free-tier friendly, nothing that requires infrastructure babysitting.
 
-The system is **modular**. The database and MCP server are the stable core. Everything else — a Telegram bot for low-friction capture, a gardening pipeline that organizes notes in the background, import tools for existing knowledge stores, a dashboard — is an optional layer you add to fit your workflow. Each module shares the same ethos: zero friction on input, agent-first retrieval, data you can always get out.
+The system is **modular**. The database and MCP server are the irreducible core — the minimum viable product. Everything else — a Telegram bot for low-friction capture, a gardening pipeline that organizes notes in the background, a smart capture router that handles any input type, import tools, a dashboard — is an optional layer. Each module shares the same ethos: zero friction on input, agent-first retrieval, data you can always get out.
 
 ## Status
 
@@ -23,6 +23,8 @@ The system is **modular**. The database and MCP server are the stable core. Ever
 → [All open issues](https://github.com/freegyes/project-ContemPlace/issues) · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md)
 
 ## Philosophy
+
+**Database + MCP is the product.** The irreducible core is a Postgres database with vector search and an MCP surface that any agent can talk to. The Telegram bot, the gardening pipeline, and everything else are modules you add. If you have a Claude subscription and MCP access, you can start capturing and retrieving notes with zero additional infrastructure.
 
 **You own your data.** Notes are stored in Postgres — a format you can query, export, or migrate without asking anyone's permission. Raw input is always preserved alongside the structured note. Nothing is locked in.
 

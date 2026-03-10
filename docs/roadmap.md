@@ -106,6 +106,23 @@ Still unpopulated: `notes.summary`, `notes.categories`, `notes.importance_score`
 
 Add OAuth 2.1 authentication to the MCP server for browser-based clients (Claude.ai web, ChatGPT, Cursor). Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens and Dynamic Client Registration. Static `MCP_API_KEY` kept permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
 
+## Architectural clarification: database + MCP is the core
+
+A product-level insight crystallized during smart capture router design (issue #27): the irreducible core of ContemPlace is the **database + MCP surface**. Everything else is a module.
+
+Three layers:
+1. **Input** — anything that puts notes into the database. The `capture_note` MCP tool is the universal input gate. The Telegram bot is one client of it. Any MCP-capable agent (Claude CLI, custom scripts) is equally valid.
+2. **Enrichment** — the gardening pipeline. The quality guarantee. Makes raw input useful regardless of how messy it arrived.
+3. **Retrieval** — agents query the enriched graph via MCP. Where the value compounds.
+
+This has implications for the existing architecture that need thorough review:
+- The Telegram Worker duplicates capture logic instead of calling through MCP
+- The smart capture router should enhance the MCP surface, not just Telegram
+- The input quality contract (what must be true for gardening to work) needs formal definition
+- Several Workers may need to be restructured around MCP as the central interface
+
+**Status:** Recognized as a strategic direction. Needs deeper architectural review before implementation reshapes the Worker topology. Tracked in issue #27.
+
 ## Smart Capture Router (in design) — issue #27
 
 The capture pipeline currently handles one input type: text → single structured note. The smart capture router is an architectural evolution where the pipeline detects what kind of input it received and dispatches to the right processing strategy. The user's experience stays the same — toss anything in, forget about it — but the system gets smarter about what it produces.
@@ -116,11 +133,9 @@ Planned input handlers:
 - **Brain dump** — long stream-of-consciousness input routed to a more capable model that decomposes it into atomic ideas, each captured through the standard pipeline
 - **List** — individual items extracted as separate notes
 
-**Design principle driving this:** The user must never think about the system itself. They capture freely, trust the DB will contain it in an easily retrievable, useful manner.
-
 **Research finding:** No shipping PKM product auto-splits at capture time. The industry converged on smarter retrieval or user-initiated splitting. ContemPlace's approach — automatic routing with specialized handlers that all produce standard atomic notes — is novel. The router classifies cheaply (rules first, then lightweight LLM if needed) and dispatches to handlers that may use different models at different costs.
 
-**Status:** Architecture direction decided. Open design questions documented in issue #27 and `docs/decisions.md`. Implementation not started. This is likely its own phase.
+**Status:** Architecture direction decided. Open design questions documented in issue #27 and `docs/decisions.md`. Implementation not started. Depends on the broader "MCP as core" architectural review.
 
 ## Phase 3 — Associative trails and beyond (deferred)
 

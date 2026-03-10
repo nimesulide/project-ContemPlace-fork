@@ -1,6 +1,10 @@
 # Architecture
 
-ContemPlace runs as three Cloudflare Workers: a **Telegram capture Worker** that receives webhooks and processes them asynchronously, an **MCP Worker** that exposes the note graph to AI agents via JSON-RPC 2.0, and a **Gardener Worker** that enriches the note graph on a nightly schedule. Supabase provides the database — Postgres with pgvector for semantic search. There are no Edge Functions, no queues, no background job runners.
+ContemPlace's irreducible core is the **database + MCP surface**. The database (Supabase with pgvector) stores notes, embeddings, links, and the SKOS vocabulary. The MCP server exposes this to any agent — input via `capture_note`, retrieval via `search_notes`/`search_chunks`/`get_related`, curation via `list_unmatched_tags`/`promote_concept`. Everything else is a module.
+
+The current implementation runs as three Cloudflare Workers: a **Telegram capture Worker** (a convenient input channel), an **MCP Worker** (the core interface), and a **Gardener Worker** (the enrichment layer). Supabase provides the database — Postgres with pgvector for semantic search. There are no Edge Functions, no queues, no background job runners.
+
+> **Architectural note (2026-03-10):** The three-Worker topology was designed with Telegram as the primary input. A recent product-level insight reframes MCP as the universal interface — the Telegram bot is one client, not the core. This may reshape how the Workers relate to each other. See `docs/decisions.md` ("Database + MCP is the irreducible core") and issue #27 for the ongoing review.
 
 ## Why this shape
 

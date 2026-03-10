@@ -345,13 +345,30 @@ Use `--skip-smoke` to skip step 5 and test manually.
 
 ## Product Intent
 
-**Core principle:** The user must never think about the system itself. They are free to think what they think and capture it anytime, anywhere, easily, without stressing about administration, routing, or what happens on the other side. They trust that the DB will contain it in an easily retrievable, useful manner. This is the foundational design principle — every architectural decision about capture evaluates against it.
+**Core principle:** The user must never think about the system itself. They are free to think what they think and capture it anytime, anywhere, easily, without stressing about administration, routing, or what happens on the other side. They trust that the DB will contain it in an easily retrievable, useful manner. This is the foundational design principle — every architectural decision evaluates against it.
 
-ContemPlace is an always-on place to capture unedited thoughts and notes via low-friction communication interfaces (Telegram in Phase 1, potentially Slack, email, voice, web in the future). The user sends raw thinking without worrying about structure or formatting. The system stores it fast, structures it automatically, and never asks the user to clarify or edit.
+### What is ContemPlace?
 
-The stored notes become a semantic context layer for downstream use. The primary use case: inviting an LLM agent (via MCP in Phase 2) to act as a creative review partner, research collaborator, or thinking companion — with access to the user's accumulated notes, retrievable by semantic similarity. The agent finds relevant context automatically. The user never has to copy-paste prior thinking into a prompt.
+The irreducible core is the **database + MCP surface**. That is the product. Everything else — the Telegram bot, the smart capture router, import tools, a dashboard — is an optional module.
 
-The capture logic (embed → find related → LLM → store) is intentionally decoupled from any specific input channel. Adding a new channel means writing a new entry point that calls the same pipeline. The `source` field records provenance.
+Three layers, each with a clear job:
+
+1. **Input** — get stuff into the database. Can be the Telegram bot (zero-friction capture on the go), the smart capture router (future: auto-detects input type), or any MCP-capable agent the user brings (Claude CLI, custom scripts, other tools). The `capture_note` MCP tool is the universal input gate — the Telegram bot is one client of it.
+2. **Enrichment** — the gardening pipeline. This is the quality guarantee. No matter how raw or messy the input, gardening produces: normalized tags, similarity links, chunks for retrieval. It's what makes the database *useful* rather than just full.
+3. **Retrieval** — agents query the enriched graph via MCP. Vector search, chunk search, semantic tools. This is where the value compounds. The primary access pattern is agent-driven, not human-driven.
+
+### Input quality contract
+
+Any input path — Telegram bot, MCP `capture_note`, future channels — must produce notes the gardener can work with. The minimum: `raw_input` preserved, `embedding` present, `tags` populated. The gardener handles `refined_tags`, similarity links, and chunks from there. The `capture_note` MCP tool enforces this by running the full LLM pipeline (embed → related notes → classify → re-embed → store). If a future input path bypasses the LLM, it must still meet this minimum contract or the gardening pipeline degrades.
+
+### Design implications (under active review — issue #27)
+
+This architectural clarity is recent. Several existing decisions may need revisiting:
+- The Telegram Worker and MCP Worker duplicate capture logic (`src/capture.ts` and `mcp/src/capture.ts`). If MCP is the universal gate, the Telegram Worker should call through MCP rather than duplicating the pipeline.
+- The smart capture router (issue #27) should enhance the MCP surface, not just the Telegram Worker. Any agent should benefit from input-type routing.
+- The `source` field distinguishes provenance but the system should work identically regardless of source.
+
+These questions need thorough strategic thinking before implementation. The current architecture works but was designed with Telegram as the primary input. The shift to "database + MCP is the core" may reshape how the Workers relate to each other.
 
 The `raw_input` column preserves the user's exact words. The structured note (title, body, tags, links) is the LLM's interpretation — useful for retrieval, but the raw input is the irreplaceable source of truth and must never be discarded.
 

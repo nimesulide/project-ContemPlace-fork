@@ -361,6 +361,27 @@ The `metadata` JSONB column on `enrichment_log` (added in `20260310000000_tag_no
 
 **Implications:** The capture pipeline must grow to handle diverse input types (short notes, URLs, brain dumps, lists, images) without requiring the user to label, categorize, prefix, or route their input. The system identifies what it received and processes it accordingly. Every route produces well-formed atomic notes. The user's experience is always the same: toss it in, forget about it.
 
+## Database + MCP is the irreducible core
+
+**Decision (2026-03-10):** The product is the database and its MCP surface. Everything else — Telegram bot, smart capture router, gardener, dashboard, import tools — is a module.
+
+**Why:** The `capture_note` MCP tool is already a universal input gate. Any MCP-capable agent (Claude CLI, custom scripts, future clients) can capture notes through the full pipeline. The Telegram bot is one convenient client of this capability, not the product itself. Similarly, retrieval via `search_notes`, `search_chunks`, `get_related` works for any agent. The gardening pipeline is the quality guarantee — it transforms raw input into useful, retrievable, connected notes regardless of input source or quality.
+
+**Three layers:**
+1. **Input** — anything that puts notes in the database. The MCP `capture_note` tool is the universal gate. The Telegram bot, smart capture router, import tools are all clients.
+2. **Enrichment** — the gardening pipeline. Makes the database useful, not just full. Normalized tags, similarity links, retrieval chunks.
+3. **Retrieval** — agents query the enriched graph via MCP. Where value compounds.
+
+**Input quality contract (needs formal definition):** Any input path must produce notes the gardener can work with. Minimum: `raw_input` preserved, `embedding` present, `tags` populated. The `capture_note` MCP tool enforces this via the full LLM pipeline. Future input paths that bypass the LLM must still meet this contract.
+
+**Architectural implications (under review):**
+- The Telegram Worker currently duplicates capture logic (`src/capture.ts`) instead of calling through MCP. If MCP is the universal gate, this duplication may need to become delegation.
+- The smart capture router (issue #27) should enhance the MCP surface, not just the Telegram Worker.
+- The three-Worker topology (Telegram, MCP, Gardener) was designed with Telegram as the primary input. The shift to "MCP is the core interface" may reshape how Workers relate to each other.
+- The `source` field distinguishes provenance but the system should behave identically regardless of source.
+
+**Status:** Strategic direction recognized. Needs a thorough architectural review before implementation. Existing decisions about Worker separation, capture pipeline duplication, and the MCP tool surface should be evaluated against this framing.
+
 ## Smart Capture Router: reframing brain dump splitting as input-type routing
 
 **Decision (2026-03-10):** Brain dump splitting (issue #27) is not a standalone feature. It is one handler within a broader architectural layer — a smart capture router that detects input type and dispatches to specialized processing strategies.
