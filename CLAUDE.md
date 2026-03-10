@@ -357,18 +357,21 @@ Three layers, each with a clear job:
 2. **Enrichment** — the gardening pipeline. This is the quality guarantee. No matter how raw or messy the input, gardening produces: normalized tags, similarity links, chunks for retrieval. It's what makes the database *useful* rather than just full.
 3. **Retrieval** — agents query the enriched graph via MCP. Vector search, chunk search, semantic tools. This is where the value compounds. The primary access pattern is agent-driven, not human-driven.
 
-### Input quality contract
+### Input quality: capture_note is a smart gate
 
-Any input path — Telegram bot, MCP `capture_note`, future channels — must produce notes the gardener can work with. The minimum: `raw_input` preserved, `embedding` present, `tags` populated. The gardener handles `refined_tags`, similarity links, and chunks from there. The `capture_note` MCP tool enforces this by running the full LLM pipeline (embed → related notes → classify → re-embed → store). If a future input path bypasses the LLM, it must still meet this minimum contract or the gardening pipeline degrades.
+`capture_note` is the **write API**. There is no other supported input path. The server runs the full LLM pipeline internally — the user sends raw text, the system handles embedding, classification, linking, and storage. Quality is guaranteed by construction: every note exits the pipeline with all 10 structured fields, an embedding, and preserved raw input. The gardener can work with any note that passed through the gate.
 
-### Design implications (under active review — issue #27)
+The smart capture router (issue #27) enhances what happens *inside* `capture_note` — routing different input types to specialized handlers. It's an upgrade to the gate, not a bypass.
 
-This architectural clarity is recent. Several existing decisions may need revisiting:
-- The Telegram Worker and MCP Worker duplicate capture logic (`src/capture.ts` and `mcp/src/capture.ts`). If MCP is the universal gate, the Telegram Worker should call through MCP rather than duplicating the pipeline.
-- The smart capture router (issue #27) should enhance the MCP surface, not just the Telegram Worker. Any agent should benefit from input-type routing.
-- The `source` field distinguishes provenance but the system should work identically regardless of source.
+### Design implications (under active review)
 
-These questions need thorough strategic thinking before implementation. The current architecture works but was designed with Telegram as the primary input. The shift to "database + MCP is the core" may reshape how the Workers relate to each other.
+This architectural clarity is recent. Several existing decisions need revisiting:
+- The Telegram Worker and MCP Worker duplicate capture logic (#46). If MCP is the universal gate, the Telegram Worker should delegate rather than duplicate.
+- The smart capture router (#27) should enhance the MCP surface, not just the Telegram Worker.
+- The input quality contract needs formal definition (#45).
+- The SYSTEM_FRAME could be published as a spec for agent guidance (#47).
+
+These questions need thorough strategic thinking before implementation. The current architecture works but was designed with Telegram as the primary input.
 
 The `raw_input` column preserves the user's exact words. The structured note (title, body, tags, links) is the LLM's interpretation — useful for retrieval, but the raw input is the irreplaceable source of truth and must never be discarded.
 

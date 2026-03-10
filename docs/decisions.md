@@ -409,6 +409,24 @@ The `metadata` JSONB column on `enrichment_log` (added in `20260310000000_tag_no
 
 **What this supersedes:** The earlier decision "Chunk generation vs capture-time splitting: different problems" remains valid — chunks fix retrieval granularity, splitting fixes graph identity. But capture-time splitting is now part of the router architecture, not a standalone concern. The `decompose_note` MCP tool idea is also subsumed — the router handles decomposition at capture time with a capable model, rather than requiring a post-hoc MCP call.
 
+## capture_note is a smart gate — the server owns the LLM pipeline
+
+**Decision (2026-03-10):** `capture_note` is the single input gate for all notes. It is a **smart gate** — the server runs the full LLM pipeline internally (embed → related notes → classify → re-embed → store). The user sends raw text; the system handles everything.
+
+**Why smart gate over validated gate:** An alternative was considered where `capture_note` would accept pre-structured input from the user's own agent, with ContemPlace only validating schema and generating embeddings. This would lower the barrier (no OpenRouter LLM cost for the user). But the server needs LLM access anyway — embeddings require an API call, and the gardener's semantic matching uses embeddings. The incremental cost of also running the capture LLM (Haiku, ~$0.001/note) is negligible. And the smart gate guarantees consistent quality regardless of which agent — or no agent — the user brings.
+
+**Implications:**
+- `capture_note` is the **write API**. There is no "raw insert" path for external callers. The Telegram bot, MCP agents, import tools, future channels — all use `capture_note`.
+- The smart capture router (issue #27) enhances what happens *inside* `capture_note`, not outside it. The router is an upgrade to the gate, not a bypass.
+- The SYSTEM_FRAME is an internal implementation detail, not a public specification that agents must conform to. The server owns classification quality. (Publishing the spec for transparency is a separate concern — issue #47.)
+- **Structured mode** (accepting pre-classified input from capable agents) could be added later as an optional second path. Not required for the core product.
+- **Trust model:** The server doesn't trust external input — it processes everything through its own pipeline. Quality is guaranteed by construction.
+
+**Design questions opened:**
+- Input quality contract: what exactly does `capture_note` guarantee? (Issue #45)
+- Worker topology: should Telegram delegate to MCP instead of duplicating the pipeline? (Issue #46)
+- SYSTEM_FRAME as public spec: value for agent guidance even if smart gate is primary (Issue #47)
+
 ## match_chunks RPC: must DROP before CREATE when changing return type
 
 **Decision (2026-03-10):** `CREATE OR REPLACE FUNCTION` cannot change the return type of an existing function. When extending return columns, `DROP FUNCTION IF EXISTS` must precede `CREATE FUNCTION`.
