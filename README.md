@@ -266,7 +266,7 @@ npx vitest run tests/mcp-smoke.test.ts     # MCP Worker
 wrangler dev
 ```
 
-199 tests total (157 MCP unit tests, 17 parser unit tests, 13 gardener similarity tests, 12 gardener config tests). Smoke tests create and clean up test notes automatically.
+209 tests total (157 MCP unit tests, 17 parser unit tests, 13 gardener similarity tests, 12 gardener config tests, 10 gardener alert tests). Smoke tests create and clean up test notes automatically.
 
 ## Project layout
 
@@ -295,6 +295,7 @@ gardener/         Gardener Worker (nightly enrichment pipeline)
     index.ts      Cron-triggered entry point (scheduled export)
     similarity.ts Link context builder (shared tags, entities)
     db.ts         Supabase operations (clean-slate delete, fetch, insert)
+    alert.ts      Best-effort Telegram failure notification
     config.ts     Config loading with threshold validation
     types.ts      TypeScript interfaces
   wrangler.toml
@@ -315,6 +316,7 @@ tests/
   mcp-smoke.test.ts       Smoke tests: live MCP Worker
   gardener-similarity.test.ts  Unit tests: buildContext + UUID dedup (13)
   gardener-config.test.ts      Unit tests: gardener config loading (12)
+  gardener-alert.test.ts       Unit tests: Telegram failure alerting (10)
 docs/             Architecture, schema, decisions, roadmap
 reviews/          Specialist review notes from project bootstrap
 ```
