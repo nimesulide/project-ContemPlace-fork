@@ -227,14 +227,14 @@ npx wrangler dev -c gardener/wrangler.toml --test-scheduled
 1. **Embedding dimension is 1536**. Default output of `text-embedding-3-small`, no `dimensions` parameter. Changing after first insert requires a full table rewrite and re-embed of all notes.
 2. **All AI calls via OpenRouter** at `https://openrouter.ai/api/v1`. Use the `openai` npm package with `baseURL` override.
 3. **All DB access uses `SUPABASE_SERVICE_ROLE_KEY`**, never the anon key.
-4. **Use `<=>` operator** for cosine distance in pgvector (not `<->` which is L2).
+4. **Use `<=>` operator** for cosine distance in pgvector (not `<->` which is L2). In RPC functions created via migrations, use `OPERATOR(extensions.<=>)` — PostgREST cannot resolve pgvector operators via `search_path` alone.
 5. **`source` field is always set** at insert — never null.
 6. **Register Telegram webhook after deploying the Worker**, not before.
 7. **Model strings and behavioral thresholds are env vars**, read via `src/config.ts`. Never hardcode a model string at a call site.
 8. **Return 200 to Telegram immediately**, process capture in `ctx.waitUntil()`.
 9. **Always store the user's raw input** in `notes.raw_input` alongside the LLM-generated title and body.
 10. **Two-pass embedding**: first embed uses raw text (for finding related notes); second embed uses `buildEmbeddingInput()` with metadata augmentation (for storage). If the second embed fails, fall back to the raw embedding — never lose the note.
-11. **RPC functions must be in the `public` schema** with `set search_path = 'public, extensions'`. Functions in the `extensions` schema are not visible to PostgREST's `.rpc()` by default.
+11. **RPC functions must be in the `public` schema** with `set search_path = 'public, extensions'`. Functions in the `extensions` schema are not visible to PostgREST's `.rpc()` by default. Use explicit `public.table_name` references and `OPERATOR(extensions.<=>)` for pgvector operators — the connection pooler's execution context does not reliably resolve these via `search_path`.
 12. **Stylistic prompt rules (title style, body rules, traceability) must come from `capture_profiles` table**, never hardcoded in source. Edit the DB row to tune capture behavior without redeploying.
 13. **JSONB columns (`entities`, `metadata`) contain LLM-generated content** — never interpolate their values into raw SQL strings.
 
@@ -299,7 +299,7 @@ The LLM returns this JSON and nothing else:
 - `capture_profiles` — user-editable stylistic prompt rules; seeded with 'default' profile
 - `processed_updates` — Telegram dedup
 
-RPC functions in `public` schema: `match_notes` (hybrid vector + full-text, 8 params), `match_chunks`.
+RPC functions in `public` schema: `match_notes` (hybrid vector + full-text, 8 params), `match_chunks`, `batch_update_refined_tags` (JSONB batch update), `find_similar_pairs` (self-join cosine similarity).
 
 ## Registering the Telegram Webhook
 
