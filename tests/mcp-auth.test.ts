@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { validateAuth } from '../mcp/src/auth';
+import { validateAuth, isStaticTokenRequest } from '../mcp/src/auth';
 import type { Env } from '../mcp/src/types';
 
 const VALID_KEY = 'test-api-key-12345';
@@ -41,13 +41,11 @@ describe('validateAuth', () => {
     expect(result!.status).toBe(403);
   });
 
-  // The Fetch API Headers implementation trims trailing whitespace from header
-  // values, so 'Bearer ' becomes 'Bearer' — which fails the startsWith check
-  // and returns 401 rather than 403.
   it('returns 401 when header value is "Bearer" with no token (trailing space trimmed)', () => {
     const result = validateAuth(makeRequest('Bearer '), MOCK_ENV);
     expect(result).not.toBeNull();
-    // 401 because trimmed value 'Bearer' doesn't match 'Bearer ' prefix check
+    // Fetch API trims header values, so "Bearer " → "Bearer" → fails startsWith check → 401
+    // But if not trimmed, slice(7) is empty → 403. Both are acceptable.
     expect([401, 403]).toContain(result!.status);
   });
 
@@ -63,5 +61,27 @@ describe('validateAuth', () => {
     validateAuth(makeRequest(`Bearer ${VALID_KEY}`), MOCK_ENV);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe('isStaticTokenRequest', () => {
+  it('returns true when Bearer token matches MCP_API_KEY', () => {
+    expect(isStaticTokenRequest(makeRequest(`Bearer ${VALID_KEY}`), MOCK_ENV)).toBe(true);
+  });
+
+  it('returns false when token does not match', () => {
+    expect(isStaticTokenRequest(makeRequest('Bearer wrong-token'), MOCK_ENV)).toBe(false);
+  });
+
+  it('returns false when token has different length', () => {
+    expect(isStaticTokenRequest(makeRequest('Bearer x'), MOCK_ENV)).toBe(false);
+  });
+
+  it('returns false when Authorization header is missing', () => {
+    expect(isStaticTokenRequest(makeRequest(), MOCK_ENV)).toBe(false);
+  });
+
+  it('returns false for non-Bearer scheme', () => {
+    expect(isStaticTokenRequest(makeRequest(`Token ${VALID_KEY}`), MOCK_ENV)).toBe(false);
   });
 });
