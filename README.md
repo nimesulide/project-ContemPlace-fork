@@ -423,3 +423,9 @@ There are no folders, no hierarchy, no manual organization. Every note is atomic
 3. **Tag normalization** — free-form tags are matched against a SKOS concept vocabulary, so "laser cutting" and "laser cutter" resolve to the same concept.
 
 Over time, clusters form naturally. Notes about instrument building link to each other; notes about a specific technique form a web. Any MCP-capable agent can surface these clusters via `search_notes` and `get_related` — ask "what are my instrument-building ideas?" and the graph does the work.
+
+<div align="center">
+<img src="docs/assets/claude-web-mcp-demo.png" alt="Claude.ai retrieving a cluster of instrument-building notes from ContemPlace via MCP" width="400" />
+<br />
+<em>Asking a fresh Claude.ai session for instrument-building notes. The agent finds and returns a cluster — no prior context needed.</em>
+</div>
