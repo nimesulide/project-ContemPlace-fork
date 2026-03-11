@@ -104,9 +104,13 @@ The v2 schema was designed with Phase 2 in mind. These columns and tables are no
 
 Still unpopulated: `notes.summary`, `notes.categories`, `notes.importance_score` (defaults to NULL), `notes.maturity` (defaults to `seedling`).
 
-## Phase 2c — OAuth 2.1 (next) — issue #5
+## Phase 2c — OAuth 2.1 (in progress) — issue #5
 
 Add OAuth 2.1 authentication to the MCP server for browser-based clients (Claude.ai web, ChatGPT, Cursor). Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens and Dynamic Client Registration. Static `MCP_API_KEY` kept permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
+
+Progress:
+- **Sub-issue A** — Handler refactor: `handleMcpRequest` extracted, timing-safe auth (PR #63, merged)
+- **Sub-issue B** — KV namespace + OAuth dependency: `@cloudflare/workers-oauth-provider@0.3.0` installed, `OAUTH_KV` created, `Env` updated (PR #64, merged)
 
 ## Architectural clarification: database + MCP is the core
 
