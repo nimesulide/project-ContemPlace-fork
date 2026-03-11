@@ -96,7 +96,7 @@ tests/
   mcp-tools.test.ts           # Unit tests for all 8 MCP tool handlers (mocked deps, no network)
   mcp-dispatch.test.ts        # Unit tests for handleMcpRequest JSON-RPC dispatch (27 tests, no network)
   mcp-index.test.ts           # Unit tests for OAuthProvider config + resolveExternalToken (15 tests)
-  mcp-oauth.test.ts           # Unit tests for consent page rendering + AuthHandler (19 tests)
+  mcp-oauth.test.ts           # Unit tests for consent page rendering, AuthHandler, CONSENT_SECRET validation (27 tests)
   mcp-smoke.test.ts           # Smoke tests against the live MCP Worker
   semantic.test.ts            # Semantic correctness suite — tagging, linking, search quality (45 tests, hits live stack)
   gardener-similarity.test.ts # Unit tests for buildContext() and UUID ordering deduplication (13 tests)
@@ -133,6 +133,7 @@ MATCH_THRESHOLD             # default: 0.60 (must be a float between 0 and 1)
 
 # MCP Worker secrets (set via: wrangler secret put <NAME> -c mcp/wrangler.toml)
 MCP_API_KEY                 # generate with: openssl rand -hex 32
+CONSENT_SECRET              # protects OAuth consent page; generate with: openssl rand -hex 16
 
 # MCP Worker configurable — defaults in mcp/src/config.ts
 MCP_SEARCH_THRESHOLD        # default: 0.35 — used only by search_notes. Lower than MATCH_THRESHOLD
@@ -325,7 +326,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 - **Phase 1.5 (complete):** Schema v2 (8 tables), metadata-augmented embeddings, `intent`/`modality`/`entities` extraction, capture voice in DB, enrichment log, expanded link types, parser unit tests. Deployed and verified via smoke tests.
 - **Phase 2a (complete):** MCP server — separate Cloudflare Worker exposing 8 tools (`search_notes`, `search_chunks`, `get_note`, `list_recent`, `get_related`, `capture_note`, `list_unmatched_tags`, `promote_concept`) over JSON-RPC 2.0. Bearer token auth. Tagged `v2.0.0`.
 - **Phase 2b (complete):** Gardening pipeline — nightly similarity linker, SKOS tag normalization, chunk generation. Maturity scoring deferred. Tagged `v2.5.0`.
-- **Phase 2c (in progress):** OAuth 2.1 for MCP server. Sub-issues A (handler refactor), B (KV + dependency), C (OAuthProvider integration) complete. Uses `@cloudflare/workers-oauth-provider` with `resolveExternalToken` for static token bypass. DCR enabled. Verified with Claude.ai web connector.
+- **Phase 2c (in progress):** OAuth 2.1 for MCP server. Sub-issues A (handler refactor), B (KV + dependency), C (OAuthProvider integration), D (consent page security) complete. Uses `@cloudflare/workers-oauth-provider` with `resolveExternalToken` for static token bypass. DCR enabled. Consent page protected by `CONSENT_SECRET`. Verified with Claude.ai web connector. Remaining: E (Cursor/ChatGPT verification).
 - **Phase 3 (deferred):** Associative trails, type inheritance (`note_types`), location extraction.
 
 ## Deploy

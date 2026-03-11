@@ -531,10 +531,23 @@ The agent needs guidance beyond the structural SYSTEM_FRAME: what to capture (at
 - CORS uses origin-mirroring (`Access-Control-Allow-Origin: <origin>`) instead of wildcard `*`
 - GET /mcp returns 401 (API route, needs auth) instead of 404 (old routing)
 
-**Consent page:** Open gate, no login. Single-user system. Displays client name + redirect URI prominently so the owner can verify before approving. Cloudflare Access is the documented upgrade path if the risk profile changes.
+**Consent page:** ~~Open gate, no login.~~ **Updated 2026-03-11 (PR #67):** Now protected by `CONSENT_SECRET` passphrase. See "Phase 2c-D: CONSENT_SECRET over Cloudflare Access" below.
 
 ## Phase 2c-C: CIMD deferred (2026-03-11)
 
 **Decision:** Leave `clientIdMetadataDocumentEnabled: false` (the default). Do not enable Client ID Metadata Documents yet.
 
 **Why:** No current MCP client uses CIMD. Enabling it requires the `global_fetch_strictly_public` compatibility flag in wrangler.toml, which changes the Worker's fetch behavior globally. The risk isn't justified for a feature no client needs today. Enable it when a client actually requires it.
+
+## Phase 2c-D: CONSENT_SECRET over Cloudflare Access (2026-03-11)
+
+**Decision:** Secure the OAuth consent page with a `CONSENT_SECRET` passphrase (Option B) instead of Cloudflare Access (Option A).
+
+**Why:** The consent page was an open gate — anyone who knew the Worker URL could register a client via DCR, visit `/authorize`, approve, and get a valid OAuth token with full read/write DB access. Four options were evaluated:
+
+- **(A) Cloudflare Access:** Strong, zero code change, but adds external dependency. Setup is dashboard-only. Upgrade path if needed.
+- **(B) CONSENT_SECRET:** Self-contained, proportionate. 128-bit secret makes brute force infeasible. Typed once per client per 30-day token lifetime.
+- **(C) Restrict DCR:** Breaks ChatGPT, Cursor, Claude Code CLI (all require DCR). Not viable alone.
+- **(D) A + C:** Defense in depth but overkill for single-user.
+
+Option B chosen because: zero external dependencies, everything lives in Worker code and secrets, full client compatibility preserved, and the consent page is visited rarely enough that per-approval entry is not a burden. DCR stays open (harmless without consent page access). No per-session cookie (adds signing complexity for marginal convenience). Cloudflare Access documented as the upgrade path if the system becomes multi-user or faces active targeting.

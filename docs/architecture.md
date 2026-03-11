@@ -191,7 +191,7 @@ This is in design, not implemented. See `docs/decisions.md` for the ADR and issu
 - **Webhook verification:** Every request must include a valid `x-telegram-bot-api-secret-token` header matching the configured secret. Missing or wrong = 403.
 - **Chat ID whitelist:** Only chat IDs listed in `ALLOWED_CHAT_IDS` are processed. Others get a silent 200 (no information leak).
 - **MCP auth (dual):** Two permanent auth paths, both routed through `@cloudflare/workers-oauth-provider`:
-  - **OAuth 2.1** — Authorization Code + PKCE for browser-based clients (Claude.ai web, ChatGPT, Cursor). Dynamic Client Registration at `/register`. Opaque tokens stored as hashes in KV. S256-only PKCE. 1h access / 30d refresh with rotation. Open consent page at `/authorize` (single-user system — no login, owner verifies redirect URI before approving).
+  - **OAuth 2.1** — Authorization Code + PKCE for browser-based clients (Claude.ai web, ChatGPT, Cursor). Dynamic Client Registration at `/register`. Opaque tokens stored as hashes in KV. S256-only PKCE. 1h access / 30d refresh with rotation. Consent page at `/authorize` protected by `CONSENT_SECRET` — a passphrase field validated via constant-time comparison before any authorization code is issued.
   - **Static Bearer token** — `MCP_API_KEY` for API/SDK callers. Handled via `resolveExternalToken` callback with constant-time `timingSafeEqual`. The hex key has no colons, so the library skips KV lookup entirely — no latency penalty.
   - Both paths reach the same `handleMcpRequest` dispatch function. Unauthenticated requests get 401 with `WWW-Authenticate` header pointing to RFC 9728 resource metadata.
 - **Gardener trigger auth:** Optional Bearer token (`GARDENER_API_KEY`) for the `/trigger` endpoint.

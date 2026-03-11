@@ -293,7 +293,8 @@ The structural contract (JSON schema, field enums, entity/link rules) lives in `
 # Unit tests — all local, no network
 npx vitest run tests/parser.test.ts \
   tests/mcp-auth.test.ts tests/mcp-config.test.ts tests/mcp-embed.test.ts \
-  tests/mcp-parser.test.ts tests/mcp-tools.test.ts tests/mcp-index.test.ts \
+  tests/mcp-parser.test.ts tests/mcp-tools.test.ts tests/mcp-dispatch.test.ts \
+  tests/mcp-index.test.ts tests/mcp-oauth.test.ts \
   tests/gardener-similarity.test.ts tests/gardener-normalize.test.ts \
   tests/gardener-embed.test.ts tests/gardener-config.test.ts \
   tests/gardener-alert.test.ts tests/gardener-trigger.test.ts \

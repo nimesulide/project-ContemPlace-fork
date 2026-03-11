@@ -112,6 +112,13 @@ Progress:
 - **Sub-issue A** — Handler refactor: `handleMcpRequest` extracted, timing-safe auth (PR #63, merged)
 - **Sub-issue B** — KV namespace + OAuth dependency: `@cloudflare/workers-oauth-provider@0.3.0` installed, `OAUTH_KV` created, `Env` updated (PR #64, merged)
 - **Sub-issue C** — OAuthProvider integration + consent page + static bypass (PR #65, merged)
+- **Sub-issue D** — Consent page secured with `CONSENT_SECRET` passphrase (PR #67, merged)
+
+### Sub-issue D — delivered (PR #67)
+
+Closed the open-gate vulnerability on the consent page. Added a `CONSENT_SECRET` Worker secret validated via constant-time comparison on POST `/authorize` before `completeAuthorization()` is called. Wrong or missing passphrase returns 403 with a denial page. Graceful degradation: if `CONSENT_SECRET` is not set, the page works as before with a console warning.
+
+Verified: wrong passphrase rejected, correct passphrase completes OAuth flow, Claude.ai web connector works end-to-end.
 
 ### Sub-issue C — delivered (PR #65)
 
