@@ -4,7 +4,7 @@ Test commands, project layout, and contributor reference for ContemPlace.
 
 ## Tests
 
-~427 tests across unit, integration, smoke, and semantic suites.
+Unit, integration, smoke, and semantic test suites.
 
 ### Unit tests (local, no network)
 
