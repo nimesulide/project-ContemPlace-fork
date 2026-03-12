@@ -41,7 +41,7 @@ No proprietary format. No vendor lock-in. Postgres you can always query and expo
 
 1. You send a thought — raw text, voice transcription, a link, whatever
 2. The capture agent structures it: title, body, tags, type, intent, entities — and links it to related notes
-3. Your exact words are always preserved alongside the structured note
+3. Your exact words are always preserved alongside the structured note — enrichment is non-destructive, so future agents can reinterpret the same input with better models
 4. A nightly gardener refines connections: similarity links, tag normalization, chunking for retrieval
 
 <div align="center">
@@ -87,9 +87,13 @@ The database + MCP server is the only required piece. Everything else is optiona
 
 **You never think about the system.** Send a thought; structure emerges automatically. Tags, intent, entities, and links happen in the background. Low friction isn't a feature — it's the reason this works at all.
 
+**Value compounds the more you use it.** Note 1 is just a note. Note 50 starts forming clusters. Note 200 has a graph where ideas reinforce, contradict, and extend each other — and you didn't build that graph manually. The gardening pipeline tightens the mesh in the background. The more you capture, the richer the context any agent has when it reads your memory.
+
+**The primary consumer is your agents, not you.** You rarely browse notes directly. You ask an AI something and it pulls from your memory via MCP — semantic search, related notes, entity lookups. The database is designed for machine retrieval first, which means any MCP-capable tool gets full access to your accumulated thinking.
+
 **Your ideas become a graph you can explore.** Notes cluster around themes over time. Some nodes gain gravitational weight. Structure isn't imposed; it emerges from the accumulation of linked, gardened notes.
 
-**You own your data.** Postgres. Query it, export it, migrate it. Raw input is always preserved. No proprietary format, no walled garden.
+**You own your data.** Postgres. Query it, export it, migrate it. Raw input is always preserved — not as a backup, but as the irreplaceable source of truth. Today's LLM interprets your words one way; tomorrow's can reinterpret the same raw input with better understanding. Enrichment is always additive, never destructive. No proprietary format, no walled garden.
 
 ## Stack
 
@@ -130,6 +134,14 @@ Anything you'd want to find again. The capture agent classifies each note by typ
 - **Reflections** — shorter, personal notes about energy, motivation, or creative identity
 
 The system doesn't care about categories. You never have to pick one. You send raw text; the capture agent figures out the rest. The patterns above aren't folders — they emerge from real usage.
+
+### Why preserve the raw input?
+
+Every note stores two things: the structured note (title, body, tags, links) and your exact original words in `raw_input`. The structured version is the LLM's interpretation — useful for search and retrieval today. But models improve. A year from now, a better model can re-read your raw input and extract richer meaning, catch nuances the current model missed, or classify things differently. Because enrichment is non-destructive — it only adds columns and links, never overwrites `raw_input` — your database gets smarter over time without losing anything. You're not locked into today's LLM's understanding of what you said.
+
+### Does value really scale with more notes?
+
+Yes, and nonlinearly. A single note is just text with metadata. But the capture agent links each new note to existing ones — `extends`, `supports`, `contradicts` — so every note you add creates new edges in the graph. The nightly gardener finds similarity links you didn't ask for and normalizes tags so different phrasings converge. After a few hundred notes, ask any MCP agent "what are my recurring themes?" or "what contradicts this idea?" and the graph does the work. You never organized anything manually. The structure emerged from accumulation.
 
 ### How does structure emerge?
 
