@@ -4,7 +4,7 @@ Test commands, project layout, and contributor reference for ContemPlace.
 
 ## Tests
 
-~420 tests across unit, integration, smoke, and semantic suites.
+~453 tests across unit, integration, smoke, and semantic suites.
 
 ### Unit tests (local, no network)
 
@@ -45,10 +45,10 @@ npx vitest run tests/gardener-integration.test.ts   # capture → gardener /trig
 ### Semantic correctness suite
 
 ```bash
-npx vitest run tests/semantic.test.ts   # 45 tests, ~70s, hits live MCP + Supabase, self-cleaning
+npx vitest run tests/semantic.test.ts   # 78 tests, ~100s, hits live MCP + Supabase, self-cleaning
 ```
 
-Tests tagging quality, linking accuracy, and search relevance. Cleans up via `source='semantic-test'` + ON DELETE CASCADE. Run this before and after capture agent changes to measure quality impact.
+Tests tagging quality, linking accuracy, and search relevance across 9 topic clusters (A-I), including conviction-type inputs (first-person beliefs about process/design). Cleans up via `source='semantic-test'` + ON DELETE CASCADE. Run this before and after capture agent changes to measure quality impact.
 
 ### Typecheck
 

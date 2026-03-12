@@ -98,7 +98,7 @@ tests/
   mcp-index.test.ts           # Unit tests for OAuthProvider config + resolveExternalToken (15 tests)
   mcp-oauth.test.ts           # Unit tests for consent page rendering, AuthHandler, CONSENT_SECRET validation (27 tests)
   mcp-smoke.test.ts           # Smoke tests against the live MCP Worker
-  semantic.test.ts            # Semantic correctness suite — tagging, linking, search quality (60 tests, hits live stack)
+  semantic.test.ts            # Semantic correctness suite — tagging, linking, search quality (78 tests, hits live stack)
   gardener-similarity.test.ts # Unit tests for buildContext() and UUID ordering deduplication (13 tests)
   gardener-normalize.test.ts  # Unit tests for tag matching: lexicalMatch, semanticMatch, resolveNoteTags (23 tests)
   gardener-embed.test.ts      # Parity tests for gardener/src/embed.ts vs src/embed.ts + mcp/src/embed.ts (3 tests)
