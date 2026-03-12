@@ -603,3 +603,41 @@ A dedicated `belief` tag was considered and rejected. It would only add value fo
 **Open questions:** (1) Whether the gardener's `embed.ts` should also use a Service Binding or keep its own copy given its batch-oriented pattern. (2) Whether the MCP Worker should be renamed to reflect its broader role (e.g., `contemplace-core`).
 
 **Implemented (2026-03-12, PR #90).** `WorkerEntrypoint` coexists with OAuthProvider — named export (`CaptureService`) alongside default export (OAuthProvider-wrapped fetch). `mcp/src/pipeline.ts` is the single source of truth, called by both `CaptureService.capture()` and `handleCaptureNote`. Telegram Worker is now ~180 lines total with enriched HTML reply (emoji indicators for type, intent, link types, entity types). `compatibility_date` bumped to `2024-04-03` on both Workers. Deploy script reordered to 7 steps (MCP Worker before Telegram Worker). ~650 lines deleted, 24 parity tests removed, 313 unit tests remain.
+
+## No input gatekeeping — the graph self-curates via density
+
+**Decision (2026-03-12):** ContemPlace accepts everything the user sends. There is no boundary enforcement for "what belongs here" — no rejection of low-value inputs, no routing to other systems, no type-based filtering at capture time.
+
+**Why:** The core principle is "the user must never think about the system itself." Asking "should I put this in ContemPlace or somewhere else?" is exactly the kind of friction the system exists to eliminate. An errand note ("buy kitchen tiles") that never gets linked to anything simply has no gravity in the graph — it's invisible unless directly searched. No harm done. The system's linking and enrichment mechanisms naturally surface high-value notes (many connections, recent activity) and let low-value notes sink.
+
+**What self-curation looks like:**
+- Notes with no inbound links, no `refined_tags`, and no recent activity have zero gravitational weight
+- Similarity linking only fires above threshold (0.70) — isolated notes stay isolated
+- Tag normalization only matches notes against the SKOS vocabulary — notes with no matchable tags get no `refined_tags`
+- Agents retrieving via `search_notes` rank by cosine similarity — low-relevance notes don't surface
+
+**What this means for the capture agent:** The agent classifies everything (type, intent, tags, entities) regardless of perceived "importance." It does not refuse inputs or warn about low-value content. The classification is honest — an errand is `intent: plan`, not dressed up as something grander.
+
+**The PKM boundary is a user convention, not a system rule.** The user's note "PKM is for insights that travel across contexts, not project backlogs" describes their personal capture philosophy. It guides what they choose to send, not what the system accepts. An agent following `get_capture_guidance` (#47) should internalize this as editorial judgment, not as a validation gate.
+
+**Stale note review (#82) is the safety net.** If the graph accumulates noise over time, periodic review surfaces dead-end notes for cleanup. This is a pull mechanism (user asks when ready), not a push mechanism (system rejects at capture time).
+
+## Structure emergence is already built — the gap is surfacing, not detection
+
+**Decision (2026-03-12):** The mechanisms for emergent structure are complete and working: capture-time linking (5 link types), gardener similarity linking (`is-similar-to` above 0.70), SKOS tag normalization (`refined_tags`), and chunk generation for long notes. No new detection mechanisms are needed. The next step is surfacing — helping the user (via their agent) see what clusters have formed.
+
+**Why this matters now:** The design questions (#93, #94) asked "how does structure emerge?" and "how do higher-order artifacts like Maps of Content get created?" The answer is that emergence is already happening — notes link to each other at capture time, the gardener adds similarity links nightly, tags converge via SKOS normalization. What's missing is not a new pipeline step but a way for the user to discover what emerged.
+
+**Three surfacing mechanisms, in order of effort:**
+
+1. **Agent-organic (zero system changes):** During any conversation, an MCP-connected agent can call `search_notes`, `get_related`, and `list_recent` to discover clusters. If the agent notices density ("these 8 notes all reference kitchen renovation"), it can point this out and offer to summarize. This works today — it just depends on the agent being aware enough to look. Issue #47 (`get_capture_guidance`) can include editorial guidance: "when exploring a topic, check for cluster density."
+
+2. **User-initiated MOC assembly (zero system changes):** The user says "show me everything about kitchen renovation." The agent queries, assembles a summary with links, and presents it. This is a conversation pattern, not a feature. If the user wants to persist it, the agent can `capture_note` the summary as a new note with `type: idea` and `intent: remember`.
+
+3. **Gardener density detection (new gardener step, deferred):** The nightly gardener could compute cluster metrics (e.g., connected components above N nodes, or nodes with >K inbound links) and log them to `enrichment_log` as `type: 'cluster_detected'`. An MCP tool (`list_clusters` or similar) could surface these. This is a meaningful feature but not urgent — the organic approach works first.
+
+**MOCs are query patterns, not stored artifacts.** A Map of Content is what you get when an agent assembles related notes into a coherent view. It doesn't need to be stored because it's derivable from the graph at any time and is always current. If a MOC needs to be persistent (shared externally, referenced by other notes), it can be captured as a regular note — no new artifact type or table needed.
+
+**Exception: persistent behavioral artifacts.** Some derived artifacts need to persist across sessions — "user's tone of voice," "capture editorial guidance," "personal context." These are already handled by existing mechanisms: `capture_profiles` (voice/style), `concepts` (SKOS vocabulary), and the proposed `get_capture_guidance` tool (#47). They're not MOCs — they're configuration, and they have dedicated storage.
+
+**What's deferred:** Gardener density detection (option 3 above). Maturity lifecycle — the `maturity` column exists but computing it requires real graph patterns to emerge. Wait for the corpus to grow before defining stages or scoring rules. Issue #82 (stale note review) will provide signal on whether the graph is actually compounding value.

@@ -104,36 +104,21 @@ The v2 schema was designed with Phase 2 in mind. These columns and tables are no
 
 Still unpopulated: `notes.summary`, `notes.categories`, `notes.importance_score` (defaults to NULL), `notes.maturity` (defaults to `seedling`).
 
-## Phase 2c — OAuth 2.1 (mostly complete) — issue #5
+## Phase 2c — OAuth 2.1 (complete) — issue #5 — `v3.0.0`
 
-Add OAuth 2.1 authentication to the MCP server for browser-based clients (Claude.ai web, ChatGPT, Cursor). Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens and Dynamic Client Registration. Static `MCP_API_KEY` kept permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
+Added OAuth 2.1 Authorization Code + PKCE to the MCP server for browser-based clients. Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens, Dynamic Client Registration, and S256-only PKCE. Static `MCP_API_KEY` retained permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
 
-Progress:
-- **Sub-issue A** — Handler refactor: `handleMcpRequest` extracted, timing-safe auth (PR #63, merged)
-- **Sub-issue B** — KV namespace + OAuth dependency: `@cloudflare/workers-oauth-provider@0.3.0` installed, `OAUTH_KV` created, `Env` updated (PR #64, merged)
-- **Sub-issue C** — OAuthProvider integration + consent page + static bypass (PR #65, merged)
-- **Sub-issue D** — Consent page secured with `CONSENT_SECRET` passphrase (PR #67, merged)
+### Delivered
 
-### Sub-issue D — delivered (PR #67)
-
-Closed the open-gate vulnerability on the consent page. Added a `CONSENT_SECRET` Worker secret validated via constant-time comparison on POST `/authorize` before `completeAuthorization()` is called. Wrong or missing passphrase returns 403 with a denial page. Graceful degradation: if `CONSENT_SECRET` is not set, the page works as before with a console warning.
-
-Verified: wrong passphrase rejected, correct passphrase completes OAuth flow, Claude.ai web connector works end-to-end.
-
-### Sub-issue C — delivered (PR #65)
-
-Wired up `@cloudflare/workers-oauth-provider` as the MCP Worker's default export. The library handles OAuth 2.1 Authorization Code + PKCE, DCR, discovery endpoints, token management, and CORS uniformly.
-
-Key design decision: used `resolveExternalToken` callback (the library's extension point for external token validation) instead of a wrapper function for static token bypass. This means all requests go through OAuthProvider — no dual routing, no CORS inconsistency. Static `MCP_API_KEY` callers are handled by the callback with constant-time comparison; OAuth callers go through the full flow.
-
-Delivered:
-- `GET /.well-known/oauth-protected-resource` — RFC 9728 metadata (auto-served by library)
-- `GET /.well-known/oauth-authorization-server` — RFC 8414 metadata (auto-served by library)
-- `POST /register` — Dynamic Client Registration (auto-served by library)
-- `GET /authorize` — consent page: client name, redirect URI display, "Approve" button
-- `POST /authorize` → `POST /token` — completes OAuth flow
-- S256-only PKCE (`allowPlainPKCE: false`), 1h access tokens, 30d refresh with rotation
+- **Sub-issue A** — Handler refactor: `handleMcpRequest` extracted, timing-safe auth (PR #63)
+- **Sub-issue B** — KV namespace + OAuth dependency: `@cloudflare/workers-oauth-provider@0.3.0`, `OAUTH_KV` binding (PR #64)
+- **Sub-issue C** — OAuthProvider integration: full OAuth flow, `resolveExternalToken` for static token bypass, consent page, discovery endpoints (PR #65)
+- **Sub-issue D** — Consent page security: `CONSENT_SECRET` passphrase, constant-time comparison (PR #67)
+- OAuth endpoints: `/.well-known/oauth-protected-resource` (RFC 9728), `/.well-known/oauth-authorization-server` (RFC 8414), `/register` (DCR), `/authorize`, `/token`
+- 1h access tokens, 30d refresh with rotation, S256-only PKCE
 - Verified end-to-end with Claude.ai web connector (all 8 tools visible and functional)
+
+Cursor and ChatGPT connector verification deferred to #102 — not blocking.
 
 ## Architectural clarification: database + MCP is the core
 
