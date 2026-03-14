@@ -4,17 +4,17 @@ What ContemPlace believes, why, and where each belief was decided.
 
 ---
 
-## The two sides of the box
+## A commonplace book that becomes a PKM system
 
-ContemPlace is a box with two sides.
+You use ContemPlace as you would a commonplace book. Send whatever is on your mind — a thought, a quote, a question, an observation. No processing obligation. No pressure to be atomic or complete. The input experience is accumulation, nothing more.
 
-**Input side:** Frictionless fragment capture. Send whatever is on your mind. The box is easy to put things into. That's the entire input experience.
+Under the hood, the system turns your commonplace book into a personal knowledge management system. A gardening layer adds structure: similarity links surface connections you didn't make explicitly. A synthesis layer (planned) will generate cluster summaries and make you re-encounter notes through accumulation alone — each new fragment triggering everything else down the line.
 
-**Output side:** Trusted, usable synthesis. The system produces something valuable — your thoughts and ideas recorded, curated, and connected over time, automatically. You get the results of organized knowledge without doing the organizing yourself.
+The MCP surface is what makes this different from every other PKM tool. Your memory lives in a database you own. Any MCP-capable agent can read and write it. Switch agents next year — the database doesn't care. That's the whole point.
 
-The product's promise: the results without the process.
+The product's promise: the results of organized knowledge without the process of organizing it.
 
-*Source: #116 design session (2026-03-14), ADR "Fragment-first capture" in `decisions.md`.*
+*Source: #116 design session (2026-03-14), commonplace book / PKM duality articulated 2026-03-14.*
 
 ---
 

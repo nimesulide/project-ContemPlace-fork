@@ -351,12 +351,14 @@ Use `--skip-smoke` to skip step 7 and test manually.
 
 ### What is ContemPlace?
 
-The irreducible core is the **database + MCP surface**. That is the product. Everything else — the Telegram bot, the smart capture router, import tools, a dashboard — is an optional module.
+A commonplace book that becomes a PKM system. You use it as you would a commonplace book — send whatever is on your mind, no processing obligation. Under the hood, the system turns your accumulation into organized, queryable knowledge through gardening (similarity links) and eventually synthesis (cluster summaries). The MCP surface makes your memory portable across any agent.
+
+The irreducible core is the **database + MCP surface**. Everything else — the Telegram bot, import tools, a dashboard — is an optional module.
 
 Three layers, each with a clear job:
 
 1. **Input** — get stuff into the database. The Telegram bot for quick on-the-go capture. Any MCP-capable agent (Claude.ai via OAuth, Claude Code via static token, custom scripts) for agent-mediated capture. The `capture_note` MCP tool is the universal input gate — the Telegram bot is one client of it.
-2. **Enrichment** — the gardening pipeline. This is the quality guarantee. No matter how raw or messy the input, gardening produces similarity links. It's what makes the database *useful* rather than just full.
+2. **Enrichment** — the gardening pipeline. Similarity links surface connections automatically. It's what turns the commonplace book into a PKM system — making the database *useful* rather than just full.
 3. **Retrieval** — agents query the enriched graph via MCP. Vector search, semantic tools. This is where the value compounds. The primary access pattern is agent-driven, not human-driven.
 
 ### Input quality: capture_note is a smart gate
