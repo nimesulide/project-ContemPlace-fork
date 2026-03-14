@@ -358,11 +358,11 @@ Use `--skip-smoke` to skip step 7 and test manually.
 
 ## Product Intent
 
-**Core principle: low friction, aware curator.** The system makes capture easy and low-friction. The user knows what it's optimized for — atomic notes in their own voice — and acts as the gatekeeper and curator. The system trusts the user is smart and capable. Guard rails and warnings are fine, but the user's editorial judgment keeps the system hygienic. Every architectural decision evaluates against this.
+**Core principle: low friction, aware curator.** The system makes capture easy and low-friction. The user captures idea fragments in their own voice and acts as the gatekeeper and curator. The system trusts the user is smart and capable. Guard rails and warnings are fine, but the user's editorial judgment keeps the system hygienic. Every architectural decision evaluates against this.
 
 **The problem ContemPlace solves:** Every AI agent builds memory about you in its own proprietary garden — isolated, non-portable, and non-trivial to even extract. Switching to a new tool means starting from zero. ContemPlace inverts this: your memory lives in a database you own, any MCP-capable agent can read and write it, and your accumulated context travels with you. You stop being locked into any single agent's ecosystem.
 
-**Emergent structure, not imposed structure.** Notes cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and generate visual representations. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened notes. This is closer to maps of content (MOCs) than to folders or categories.
+**Emergent structure, not imposed structure.** Fragments cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and generate visual representations. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened fragments. This is closer to maps of content (MOCs) than to folders or categories. A planned synthesis layer (#116) will generate MOC-like cluster summaries from accumulated fragments.
 
 ### What is ContemPlace?
 
@@ -376,9 +376,9 @@ Three layers, each with a clear job:
 
 ### Input quality: capture_note is a smart gate
 
-`capture_note` is the **write API**. There is no other supported input path. The server runs the full LLM pipeline internally — the user sends raw text, the system handles embedding, classification, linking, and storage. Quality is guaranteed by construction: every note exits the pipeline with structured fields, an embedding, and preserved raw input. The gardener can work with any note that passed through the gate.
+`capture_note` is the **write API**. There is no other supported input path. The server runs the full LLM pipeline internally — the user sends raw text, the system handles embedding, structuring, linking, and storage. Quality is guaranteed by construction: every fragment exits the pipeline with structured fields, an embedding, and preserved raw input. The gardener can work with any fragment that passed through the gate.
 
-The system is optimized for atomic notes — one idea per note, in the user's own voice. An atomic note earns a single claim as its title without needing "and" to connect two separate points. It's self-contained, voice-preserving, and complete without being padded. Title model: claim primary, question secondary, topic labels never. Typical range: 20–150 words, 1–4 sentences — but these are descriptive, not prescriptive. Word count is a weak proxy; idea count is the real measure. Complex inputs (brain dumps, multi-topic streams) are the user's responsibility to pre-process — either manually or via an LLM agent using MCP tools. The system handles everything gracefully, but atomic input produces the best results. Full definition: [#108](https://github.com/freegyes/project-ContemPlace/issues/108), `docs/capture-agent.md`.
+The system captures idea fragments — whatever the user sends, in their own voice. A fragment can be a focused thought, a rough observation, a question, a quote. Focused fragments (one claim, self-contained, voice-preserving) produce the best immediate structuring, but all fragments are valuable raw material for accumulation and synthesis. Title model: claim primary, question secondary, topic labels never. Complex inputs (brain dumps, multi-topic streams) are the user's choice to pre-process — the system captures everything faithfully. See `docs/capture-agent.md`, #116.
 
 ### Capture LLM contract
 
@@ -386,11 +386,21 @@ The system is optimized for atomic notes — one idea per note, in the user's ow
 
 **Must not:** compress input, hallucinate, add inferred meanings, change input destructively, add conclusions the user didn't express. The body is transcription, not synthesis. `raw_input` is the irreplaceable source of truth.
 
+### Trust contract
+
+The system is a faithful mirror, not a co-author. This applies to the capture pipeline and (when built) the synthesis layer:
+- **No contamination.** Never put inferred statements in the user's voice.
+- **No garbage.** Everything in the system traces to something the user actually said.
+- **Full traceability.** Every structured or synthesized statement cites source fragments.
+- **Analytical, not creative.** The system organizes and connects. It doesn't generate new ideas, draw novel conclusions, or add meaning the fragments don't contain.
+
 ### Design implications
 
 The single capture path is implemented (PR #90, issue #46): the Telegram Worker delegates to the MCP Worker via Service Binding. The MCP agent training pattern (#107) will make capture guidance queryable — agents call a training tool and learn what the system expects.
 
 The `raw_input` column preserves the user's exact words. The structured note (title, body, tags, links) is the LLM's interpretation — useful for retrieval, but the raw input is the irreplaceable source of truth and must never be discarded.
+
+A synthesis layer (#116) is planned: the gardener will detect clusters of related fragments and generate MOC-like summaries. The trust contract constrains this — synthesis must be analytical and traceable, never inferential. Design is open; see #116.
 
 ## Design Philosophy
 
@@ -453,7 +463,8 @@ Each layer owns a specific type of information. **Never duplicate across layers*
 | **`docs/roadmap.md`** | Narrative of what each phase delivered and what's next. | When a feature ships or a phase closes |
 | **`docs/schema.md`** | All tables, RPC functions, indexes, columns. | When schema or RPC functions change |
 | **`docs/architecture.md`** | Workers, data flow, embedding strategy, error handling. | When architecture changes |
-| **`docs/capture-agent.md`** | Classification taxonomy, linking logic, voice correction. | When capture behavior changes |
+| **`docs/philosophy.md`** | Product design principles: fragment-first capture, trust contract, synthesis layer, emergent structure. The "why" behind architectural choices. | When product principles change |
+| **`docs/capture-agent.md`** | Capture pipeline behavior, linking logic, voice correction. | When capture behavior changes |
 | **`CLAUDE.md`** | Stable AI context: architecture, hard constraints, key files, conventions. No current state, no issue indexes, no phase status. | When architecture or conventions change |
 | **`README.md`** | Product front door: what it is, why it matters, status, modules, philosophy, FAQ. No bash commands, no config tables. | When any user-visible surface changes |
 | **`docs/setup.md`** | Full deploy guide: prerequisites, secrets, Worker deployment, configuration tables, env var reference. | When deploy process or config changes |

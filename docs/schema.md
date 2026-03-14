@@ -15,7 +15,7 @@ The core table. Each row is a captured note with both the user's raw input and t
 | `created_at` | timestamptz | auto | |
 | `updated_at` | timestamptz | trigger | Via `update_updated_at()` trigger |
 | `title` | text | LLM | Claim or descriptive phrase |
-| `body` | text | LLM | 1–8 sentences (scales with input length), atomic |
+| `body` | text | LLM | Faithful to user's words, scales with input length |
 | `tags` | text[] | LLM | Free-form tags from input |
 | `source_ref` | text | LLM | URL if present |
 | `source` | text | system | Always set. Currently `telegram`, `mcp`, or `semantic-test`. |
@@ -25,8 +25,8 @@ The core table. Each row is a captured note with both the user's raw input and t
 | `refined_tags` | text[] | gardener | Normalized via SKOS — pref_labels only |
 | `categories` | text[] | gardener | Broad categories (unpopulated) |
 | `metadata` | jsonb | gardener | Extensible metadata |
-| `importance_score` | float | gardener | Computed from links/recency (unpopulated) |
-| `maturity` | text | gardener | `seedling` → `budding` → `evergreen` |
+| `importance_score` | float | gardener | Unpopulated — may be dropped or repurposed (#116) |
+| `maturity` | text | gardener | Unpopulated — per-note labels rejected in favor of computed cluster-level analysis (#116) |
 | `archived_at` | timestamptz | user | Soft delete |
 | `embedding` | vector(1536) | system | Metadata-augmented embedding |
 | `embedded_at` | timestamptz | system | When embedding was computed |

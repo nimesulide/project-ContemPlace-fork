@@ -80,21 +80,23 @@ The database + MCP server is the only required piece. Everything else is optiona
 | **Dashboard** | Browser-based view — search, browse, follow links, see the graph. | 💡 Planned |
 | **Obsidian import** | Pull an existing vault into the database. | 💡 Planned |
 | **ChatGPT memory import** | Rescue accumulated context from a proprietary format. | 💡 Planned |
-| **URL handling + input awareness** | Detect URLs for specialized capture; warn when input isn't atomic. | 💡 Design phase |
+| **URL handling + input awareness** | Detect URLs for specialized capture; multi-fragment quality signals. | 💡 Design phase |
 
 ## Philosophy
 
 **Your context travels with you.** Any MCP-capable agent can read and write your knowledge base. Switch tools, try new agents, combine workflows — your accumulated context comes along.
 
-**Low friction, aware curator.** The system makes capture easy. You know what it's optimized for — atomic notes in your own voice — and you're the gatekeeper. The system trusts you. It won't reject input or make you organize anything, but it works best when each note carries one idea. Complex inputs? Pre-process them yourself or let your agent help. The system handles everything gracefully, but atomic notes produce the best results.
+**Capture fragments, not finished thoughts.** Send whatever is on your mind — a reflection, a quote, an observation, a question, a workflow idea. No pressure to make it perfect or atomic. The system structures each fragment (title, tags, links, entities) and preserves your exact words. Focused fragments produce the best immediate results, but everything is valuable raw material for the synthesis layer.
 
-**Value compounds the more you use it.** Note 1 is just a note. Note 50 starts forming clusters. Note 200 has a graph where ideas reinforce, contradict, and extend each other — and you didn't build that graph manually. The gardening pipeline tightens the mesh in the background. The more you capture, the richer the context any agent has when it reads your memory.
+**You get the results without the process.** Most people organize notes because they want the results — findability, connections, patterns — not because they enjoy organizing. ContemPlace automates the gardening: similarity links, tag normalization, chunking, and (planned) cluster synthesis. You capture fragments; the system does the curation.
+
+**Value compounds the more you use it.** Fragment 1 is just a fragment. Fragment 50 starts forming clusters. Fragment 200 has a graph where ideas reinforce, contradict, and extend each other — and you didn't build that graph manually. The gardening pipeline tightens the mesh in the background. The more you capture, the richer the context any agent has when it reads your memory.
 
 **The primary consumer is your agents, not you.** You rarely browse notes directly. You ask an AI something and it pulls from your memory via MCP — semantic search, related notes, entity lookups. The database is designed for machine retrieval first, which means any MCP-capable tool gets full access to your accumulated thinking.
 
-**Your ideas become a graph you can explore.** Notes cluster around themes over time. Some nodes gain gravitational weight. Structure isn't imposed; it emerges from the accumulation of linked, gardened notes.
+**Your ideas become a graph you can explore.** Fragments cluster around themes over time. Some nodes gain gravitational weight. Structure isn't imposed; it emerges from the accumulation of linked, gardened fragments. The system never reaches a final state — it's a living organism that changes with every fragment you capture, reflecting back what you've been thinking about days or years ago.
 
-**Your voice is sacred.** The capture agent doesn't compress, interpret, or add inferred meanings. It transcribes, not synthesizes. Every sentence in the body traces back to something you actually said. Your raw input is always preserved as the irreplaceable source of truth.
+**The system is a faithful mirror, not a co-author.** The capture agent doesn't compress, interpret, or add inferred meanings. It transcribes, not synthesizes. Every sentence in the body traces back to something you actually said. Your raw input is always preserved as the irreplaceable source of truth. When the synthesis layer organizes and connects your fragments, it stays analytical — no inferred conclusions, no creative additions. Everything traces to something you said.
 
 **You own your data.** Postgres. Query it, export it, migrate it. Today's LLM interprets your words one way; tomorrow's can reinterpret the same raw input with better understanding. Enrichment is always additive, never destructive. No proprietary format, no walled garden.
 
@@ -128,13 +130,14 @@ All three require a Supabase database and Cloudflare account. Full prerequisites
 
 ### What kind of notes does this store?
 
-Anything you'd want to find again. The system is optimized for atomic notes — one idea per note, in your own voice. An atomic note earns a single claim as its title without needing "and" to connect two separate points. It's self-contained, voice-preserving, and complete without being padded. In practice, a typical database ends up with:
+Anything you'd want to find again. The system captures idea fragments — whatever is on your mind, in your own voice. A fragment can be a single focused thought or something rougher and more partial. In practice, a typical database ends up with:
 
-- **Project ideas** — things to build, one concept per note
-- **Technical references** — things you looked up and want to find again
-- **Research breadcrumbs** — things to follow up on
-- **Source notes** — references to videos, articles, or conversations that sparked ideas
-- **Reflections** — shorter, personal notes about energy, motivation, or creative identity
+- **Observations** — things you noticed about the world, your work, your interests
+- **Reflections** — personal notes about energy, motivation, creative identity, life
+- **Questions** — things you'd like to ponder or investigate
+- **Quotes and references** — things that resonated from books, articles, conversations
+- **Project ideas** — things to build, explore, or try
+- **Workflow notes** — specific suggestions for how to do things better
 
 The system doesn't care about categories. You never have to pick one. You send raw text; the capture agent handles structuring. The patterns above aren't folders — they emerge from real usage.
 
@@ -148,7 +151,7 @@ Yes, and nonlinearly. A single note is just text with metadata. But the capture 
 
 ### How does structure emerge?
 
-No folders, no hierarchy, no manual organization. Every note is atomic — one idea, one reference, one reflection. Structure comes from three mechanisms:
+No folders, no hierarchy, no manual organization. Structure comes from three mechanisms:
 
 1. **Capture-time linking** — the LLM compares your note against existing notes and creates edges to related notes
 2. **Similarity linking** — the gardening pipeline finds notes with high cosine similarity and connects them
@@ -178,4 +181,4 @@ Input can come from voice dictation. The agent detects and silently corrects tra
 
 ---
 
-**[Setup guide](docs/setup.md)** · **[Development](docs/development.md)** · **[Architecture](docs/architecture.md)** · **[Schema](docs/schema.md)** · **[Capture agent](docs/capture-agent.md)** · **[Decisions](docs/decisions.md)** · **[Roadmap](docs/roadmap.md)** · **[CLAUDE.md](CLAUDE.md)**
+**[Philosophy](docs/philosophy.md)** · **[Setup guide](docs/setup.md)** · **[Development](docs/development.md)** · **[Architecture](docs/architecture.md)** · **[Schema](docs/schema.md)** · **[Capture agent](docs/capture-agent.md)** · **[Decisions](docs/decisions.md)** · **[Roadmap](docs/roadmap.md)** · **[CLAUDE.md](CLAUDE.md)**

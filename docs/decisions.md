@@ -745,3 +745,27 @@ A dedicated `belief` tag was considered and rejected. It would only add value fo
 **Implementation:** Clean-slate v3 schema — consolidated 10 migration files into one that never had these columns. SYSTEM_FRAME reduced from 10-field to 7-field JSON contract. Embedding format simplified from `[Type: X] [Intent: Y] [Tags: ...] text` to `[Tags: ...] text`. All 81 curated notes re-captured from `raw_input` to rebuild the corpus in the new vector space. All tests updated and passing.
 
 **Source:** Issue #110, PR #114. Decision chain: #93 → #104 → #110.
+
+## Fragment-first capture: atomicity governs synthesis, not capture (2026-03-14)
+
+**Decision:** The fundamental capture unit is the idea fragment, not the atomic note. Fragments are whatever the user sends — diverse in type, variable in completeness, unpressured to be atomic. Atomic-like structures (focused, single-claim, well-linked) emerge from fragments through the gardening and synthesis layers, not from capture-time enforcement.
+
+**What this reverses:** The 2026-03-13 storage philosophy decision recorded "Atomic notes are the optimized input type" and "Philosophy C (drop atomicity — rejected)." After literature research (Sosa's accretion theory, Ahrens' clustering, Milo's MOCs, Johnson's slow hunches) and reflection on actual capture behavior, the position shifted. Atomicity was an aspiration for the capture event that added friction without matching how the user actually captures. What the user sends are idea fragments — self-reflection, quotes, book notes, observations, questions, workflow suggestions.
+
+**Why:** Three realizations drove the shift:
+1. The user's natural capture style is fragmented and diverse. Pressuring fragments into atomic shape adds friction at the moment when friction matters most.
+2. Ideas accrete from fragments (Sosa's "ideasimals"). A system that only stores completed atoms misses the intermediate stage where fragments are combining but haven't yet cohered.
+3. The real value isn't in atomic capture — it's in what the system builds from accumulated fragments. Synthesis, clustering, and MOC-like structures are the product. Fragments are the raw material.
+
+**The trust contract:** The system earns trust by guaranteeing: (1) no contamination — synthesis never contains inferred statements in the user's voice, (2) no garbage — everything traces to real fragments, (3) full traceability — every synthesized statement cites source fragments, (4) analytical not creative — the system organizes and connects, it doesn't generate new ideas or add meaning the fragments don't contain. The system is a faithful mirror, not a co-author.
+
+**What changes in practice:**
+- The capture pipeline stays the same — the LLM still produces title/body/tags/entities/links. What changes is the framing: the pipeline structures fragments, it doesn't enforce atomicity.
+- Non-atomic detection heuristics reframe as multi-fragment indicators — useful quality signals for the capture LLM, not input quality warnings to the user.
+- The gardener gains a future synthesis phase: cluster detection → MOC generation → incremental re-evaluation. Tracked in #116.
+- Maturity labels (seedling/budding/evergreen) are rejected. Maturity is a computed analytical proxy from density, clustering, and link patterns — not a per-note label.
+- The system never reaches a final state. It's a living organism that changes with every captured fragment.
+
+**Product reframe:** The user doesn't enjoy the administrative process of organizing notes — they want the results. ContemPlace's promise: frictionless fragment capture on the input side, trusted synthesis on the output side. You get the results without the process.
+
+**Source:** Issue #116. Literature basis in #116 comment. Decision chain: #93 → #103 → #116.

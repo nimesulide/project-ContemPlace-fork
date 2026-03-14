@@ -200,15 +200,19 @@ Telegram can deliver the same webhook multiple times. The `processed_updates` ta
 
 This runs *before* the 200 response, so dedup is synchronous and guaranteed even if the background processing fails.
 
-## Future direction: URL handling and input awareness
+## Future direction
 
-The system is optimized for atomic notes in the user's own voice. Complex input (brain dumps, multi-topic streams) is the user's responsibility to pre-process — either manually or via an LLM agent using MCP tools.
+### Fragment-first capture and synthesis layer
+
+The system captures idea fragments — whatever the user sends, in their own voice. Focused fragments produce the best immediate structuring, but all fragments are valuable raw material. The capture pipeline structures each fragment (title, body, tags, entities, links) and preserves the user's exact words. See `docs/decisions.md` for the fragment-first ADR (2026-03-14).
+
+The planned synthesis layer (#116) will build higher-order structures from accumulated fragments: cluster detection, MOC-like synthesis notes, computed maturity from density and link patterns. This is a design-phase concept — the mechanism, schema implications, and gardener integration are open questions tracked in #116.
+
+### URL handling and input awareness
 
 Two capture-time enhancements remain in scope (issue #27, narrowed):
 1. **URL detection** — when a URL is present, the pipeline should handle it differently (fetch content, cross-reference existing notes, build a reference note with real context).
-2. **Non-optimal input detection** — warn the user when input doesn't match the system's sweet spot (multi-topic, very long). The note is still captured; the warning is informational (#109).
-
-See `docs/decisions.md` for the full ADR on the storage philosophy decision (2026-03-13).
+2. **Multi-fragment detection** — surface quality signals when input contains multiple ideas. The fragment is always captured; how and whether to communicate this to the user needs design work (#116).
 
 ## Security boundaries
 

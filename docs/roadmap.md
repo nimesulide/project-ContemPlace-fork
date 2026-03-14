@@ -83,9 +83,9 @@ Splits long notes (body > 1500 chars) into ~500–800 char chunks at paragraph b
 
 Reduced gardener subrequests from ~12 + 2N to ~16 fixed via two new RPC functions: `batch_update_refined_tags` (JSONB batch UPDATE) and `find_similar_pairs` (self-join replaces N individual `match_notes` calls). At 300 notes: 16 subrequests instead of 612.
 
-### Maturity/importance scoring — deferred
+### Maturity/importance scoring — deferred, approach revised
 
-User's mental model is emergent MOC-style graph evolution (maps of content as gravitational centers, freshness = recently linked, density = many relations). Closer to community detection than per-note scoring. Needs real graph patterns to design well. ADR recorded in `docs/decisions.md`.
+Per-note maturity labels (seedling/budding/evergreen) and importance scores are rejected as a design direction (ADR 2026-03-14, #116). Maturity is a computed analytical proxy inferred from density, clustering, and link patterns — not a label assigned to individual notes. The `maturity` and `importance_score` columns exist in the schema but are unpopulated and may be dropped or repurposed. See #116 for the broader fragment-first philosophy that drives this change.
 
 ### Alerting and manual trigger — delivered (PRs #36, #37)
 
@@ -138,17 +138,17 @@ Remaining implications:
 
 ## Smart Capture Router (narrowed scope) — issue #27
 
-**Updated 2026-03-13:** The smart capture router's scope has narrowed significantly following the #93 storage philosophy decision. The system is optimized for atomic notes, and complex input pre-processing is the user's responsibility (via their own LLM agent or manual decomposition).
+**Updated 2026-03-14:** The smart capture router's scope has narrowed following the fragment-first decision (#116). The system captures idea fragments without pressuring atomicity. Complex input pre-processing is the user's choice (via their own LLM agent or manual decomposition), not a system requirement.
 
 What remains:
 - **URL detection** — when a URL is present, the capture pipeline handles it differently (fetch content, cross-reference, build reference note). Confirmed as worth special care.
-- **Non-optimal input detection** — warn the user when input doesn't match the system's sweet spot (multi-topic, very long). Warning only, not rejection. Tracked in #109.
+- **Multi-fragment detection** — surface quality signals when input contains multiple ideas. The fragment is always captured. How and whether to communicate this to the user needs design work.
 
 What moved to user-side:
 - **Brain dumps** — the user decomposes via an LLM agent (Claude.ai via OAuth MCP, Claude Code) before capturing. The MCP agent training pattern (#107) teaches agents how to help with this.
 - **Lists** — the user or agent splits items before capturing.
 
-**Status:** Narrowed scope. URL handling is the main remaining system-side feature. Brain dump decomposition is a workflow, not a system component.
+**Status:** Narrowed scope. URL handling is the main remaining system-side feature.
 
 ## v3.1.0 — Leaner capture pipeline (complete) — issue #110
 
