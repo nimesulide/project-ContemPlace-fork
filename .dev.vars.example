@@ -24,6 +24,15 @@ MCP_API_KEY=your_mcp_api_key_here
 # GARDENER_SIMILARITY_THRESHOLD is set in gardener/wrangler.toml [vars] — default 0.70.
 GARDENER_API_KEY=your_gardener_api_key_here
 
+# OAuth consent page secret — generate with: openssl rand -hex 16
+CONSENT_SECRET=your_consent_secret_here
+
+# KV namespace IDs (reference only — paste into mcp/wrangler.toml after creating)
+# Create with: wrangler kv namespace create OAUTH_KV -c mcp/wrangler.toml
+#              wrangler kv namespace create OAUTH_KV --preview -c mcp/wrangler.toml
+OAUTH_KV_ID=your_kv_namespace_id_here
+OAUTH_KV_PREVIEW_ID=your_kv_preview_id_here
+
 # Test-only — not used by the worker itself
 WORKER_URL=https://contemplace.your-subdomain.workers.dev
 TELEGRAM_CHAT_ID=your_chat_id_here

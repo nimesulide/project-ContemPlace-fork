@@ -70,6 +70,11 @@ npx vitest run tests/parser.test.ts tests/gardener-similarity.test.ts tests/gard
 echo ""
 
 # ── Step 4: Deploy MCP Worker (must deploy before Telegram — Service Binding target) ─
+if grep -q 'YOUR_KV_NAMESPACE_ID\|YOUR_KV_PREVIEW_ID' mcp/wrangler.toml; then
+  echo "❌  mcp/wrangler.toml still has placeholder KV namespace IDs."
+  echo "   Create your KV namespace first — see docs/setup.md section 4."
+  exit 1
+fi
 echo "▶  4/7  Deploying MCP Worker..."
 wrangler deploy -c mcp/wrangler.toml
 echo "   ✓ MCP Worker deployed."

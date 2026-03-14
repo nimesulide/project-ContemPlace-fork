@@ -75,6 +75,21 @@ The Telegram Worker has no configurable model/threshold settings — all capture
 
 ## 4. Deploy the MCP Worker
 
+### Create the KV namespace
+
+The MCP Worker uses a KV namespace for OAuth token storage. Create it first:
+
+```bash
+wrangler kv namespace create OAUTH_KV -c mcp/wrangler.toml
+wrangler kv namespace create OAUTH_KV --preview -c mcp/wrangler.toml
+```
+
+Each command outputs an `id`. Paste them into `mcp/wrangler.toml` under `[[kv_namespaces]]` — replace `YOUR_KV_NAMESPACE_ID` and `YOUR_KV_PREVIEW_ID` with the values you got.
+
+To prevent git from showing your local KV IDs as a diff: `git update-index --skip-worktree mcp/wrangler.toml`
+
+### Set secrets and deploy
+
 ```bash
 wrangler secret put MCP_API_KEY -c mcp/wrangler.toml            # generate: openssl rand -hex 32
 wrangler secret put CONSENT_SECRET -c mcp/wrangler.toml         # generate: openssl rand -hex 16
