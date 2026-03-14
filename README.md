@@ -19,7 +19,7 @@
 
 Every AI agent you use builds memory about you — but in its own proprietary garden. You can't move it, combine it, or extract it without non-trivial effort. Every time you try a new tool, you start from zero.
 
-ContemPlace is the fix. An MCP-connected database that *you* own. Send raw input from any interface — a Telegram bot, Claude CLI, a custom script, anything that speaks MCP. The system structures it, embeds it, links it to your prior thinking, and makes it semantically searchable. A gardening pipeline runs in the background to normalize and connect your notes so retrieval keeps getting better. Your accumulated context travels with you.
+ContemPlace is the fix. An MCP-connected database that *you* own. Send raw input from any interface — a Telegram bot, Claude CLI, a custom script, anything that speaks MCP. The system structures it, embeds it, links it to your prior thinking, and makes it semantically searchable. A gardening pipeline runs in the background to find connections between your notes so retrieval keeps getting better. Your accumulated context travels with you.
 
 No proprietary format. No vendor lock-in. Postgres you can always query and export. The stack runs on free tiers — average use costs $2–3/month in LLM calls.
 
@@ -63,7 +63,7 @@ The MCP server is the primary interface. Five tools, usable by any MCP-capable a
 | `get_related` | All linked notes in both directions with link types and confidence. |
 | `capture_note` | Pass raw words — the server runs the full capture pipeline. Do not pre-structure. |
 
-**Auth:** OAuth 2.1 (Authorization Code + PKCE) for browser clients like Claude.ai, or a static Bearer token for API/SDK callers like Claude Code CLI. Both paths are permanent.
+**Auth:** OAuth 2.1 (Authorization Code + PKCE) for browser clients like Claude.ai, or a static Bearer token (your `MCP_API_KEY`) for API/SDK callers like Claude Code CLI. Both paths are permanent.
 
 ## Modules
 
@@ -120,7 +120,7 @@ What do you want? Pick your path:
 | **+ Telegram capture** — low-friction mobile input | Add the Telegram Worker | [Setup: Telegram Worker](docs/setup.md#6-deploy-the-telegram-capture-worker-optional) |
 | **+ Background enrichment** — similarity linking | Add the Gardener Worker | [Setup: Gardener Worker](docs/setup.md#7-deploy-the-gardener-worker-optional) |
 
-All three require a Supabase database and Cloudflare account. Full prerequisites and step-by-step instructions in the **[Setup guide](docs/setup.md)**.
+All paths start from **[the setup guide](docs/setup.md)** — clone, authenticate CLIs, configure secrets, set up the database, then deploy the Workers you need.
 
 ## FAQ
 
@@ -147,10 +147,10 @@ Yes, and nonlinearly. A single note is just text with metadata. But the capture 
 
 ### How does structure emerge?
 
-No folders, no hierarchy, no manual organization. Structure comes from three mechanisms:
+No folders, no hierarchy, no manual organization. Structure comes from two mechanisms:
 
 1. **Capture-time linking** — the LLM compares your note against existing notes and creates edges to related notes
-2. **Similarity linking** — the gardening pipeline finds notes with high cosine similarity and connects them
+2. **Similarity linking** — the nightly gardener finds notes with high cosine similarity and connects them
 
 Over time, clusters form naturally. Any MCP-capable agent can surface them — ask "what are my instrument-building ideas?" and the graph does the work.
 
