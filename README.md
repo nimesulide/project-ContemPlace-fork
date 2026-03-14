@@ -34,8 +34,7 @@ No proprietary format. No vendor lock-in. Postgres you can always query and expo
 | Dashboard | 💡 Planned — [#101](https://github.com/freegyes/project-ContemPlace/issues/101) |
 | Leaner capture (drop type/intent/modality) | ✅ Complete — [#110](https://github.com/freegyes/project-ContemPlace/issues/110) |
 | Schema simplification (v4) | ✅ Complete — drop SKOS, chunking, simplify links · [#128](https://github.com/freegyes/project-ContemPlace/issues/128) |
-| URL handling + input awareness | 💡 Design phase — [#27](https://github.com/freegyes/project-ContemPlace/issues/27) |
-| Import tools | 💡 Planned — [#13](https://github.com/freegyes/project-ContemPlace/issues/13), [#14](https://github.com/freegyes/project-ContemPlace/issues/14) |
+| Import tools | 💡 Planned — [#13](https://github.com/freegyes/project-ContemPlace/issues/13), [#14](https://github.com/freegyes/project-ContemPlace/issues/14), [#133](https://github.com/freegyes/project-ContemPlace/issues/133) |
 
 > [All open issues](https://github.com/freegyes/project-ContemPlace/issues) · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md)
 
@@ -76,9 +75,8 @@ The database + MCP server is the only required piece. Everything else is optiona
 | **Telegram capture bot** | Zero-friction note capture from your phone. Message the bot, get a structured note back. | ✅ Live |
 | **Gardening pipeline** | Nightly enrichment: similarity linking. | ✅ Complete |
 | **Dashboard** | Browser-based view — search, browse, follow links, see the graph. | 💡 Planned |
-| **Obsidian import** | Pull an existing vault into the database. | 💡 Planned |
+| **Obsidian import** | Re-fragment and recapture existing vault content via custom command. | 💡 Planned — [#133](https://github.com/freegyes/project-ContemPlace/issues/133) |
 | **ChatGPT memory import** | Rescue accumulated context from a proprietary format. | 💡 Planned |
-| **URL handling + input awareness** | Detect URLs for specialized capture; multi-fragment quality signals. | 💡 Design phase |
 
 ## Philosophy
 

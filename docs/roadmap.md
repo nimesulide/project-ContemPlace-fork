@@ -94,7 +94,7 @@ Added OAuth 2.1 Authorization Code + PKCE to the MCP server for browser-based cl
 - **Sub-issue D** — Consent page security: `CONSENT_SECRET` passphrase, constant-time comparison (PR #67)
 - OAuth endpoints: `/.well-known/oauth-protected-resource` (RFC 9728), `/.well-known/oauth-authorization-server` (RFC 8414), `/register` (DCR), `/authorize`, `/token`
 - 1h access tokens, 30d refresh with rotation, S256-only PKCE
-- Verified end-to-end with Claude.ai web connector (all 8 tools visible and functional)
+- Verified end-to-end with Claude.ai web connector (all tools visible and functional; later reduced from 8 to 5 in v4.0.0)
 
 Cursor and ChatGPT connector verification deferred to #102 — not blocking.
 
@@ -109,25 +109,13 @@ Three layers:
 
 The first concrete step was delivered in PR #90: the Telegram Worker delegates capture to the MCP Worker via a Service Binding instead of running its own copy of the pipeline. One capture process, multiple gateways.
 
-Remaining implications:
-- The smart capture router should enhance the MCP surface, not just Telegram
-- The input quality contract (what must be true for gardening to work) needs formal definition
+**Status:** Core architecture implemented and stable as of v4.0.0.
 
-**Status:** Core architecture implemented. Remaining items tracked in issues #27 and #45.
+## Smart Capture Router — closed (issue #27)
 
-## Smart Capture Router (narrowed scope) — issue #27
+**Closed 2026-03-14.** The smart capture router concept was superseded by the single capture path (PR #90) and fragment-first philosophy (#116). All inputs go through `capture_note` uniformly.
 
-**Updated 2026-03-14:** The smart capture router's scope has narrowed following the fragment-first decision (#116). The system captures idea fragments without pressuring atomicity. Complex input pre-processing is the user's choice (via their own LLM agent or manual decomposition), not a system requirement.
-
-What remains:
-- **URL detection** — when a URL is present, the capture pipeline handles it differently (fetch content, cross-reference, build reference note). Confirmed as worth special care.
-- **Multi-fragment detection** — surface quality signals when input contains multiple ideas. The fragment is always captured. How and whether to communicate this to the user needs design work.
-
-What moved to user-side:
-- **Brain dumps** — the user decomposes via an LLM agent (Claude.ai via OAuth MCP, Claude Code) before capturing. The MCP agent training pattern (#107) teaches agents how to help with this.
-- **Lists** — the user or agent splits items before capturing.
-
-**Status:** Narrowed scope. URL handling is the main remaining system-side feature.
+The one remaining idea — input-aware enrichment where the pipeline detects special patterns (URLs, citations) and takes extra extraction steps while still following the same route — is a separate exploration, not a "router." No issue open for this yet; it'll surface through real-world usage.
 
 ## v3.1.0 — Leaner capture pipeline (complete) — issue #110
 

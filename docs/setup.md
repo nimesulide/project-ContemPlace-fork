@@ -39,10 +39,11 @@ The migrations create 5 tables, RLS policies, RPC functions (`match_notes`, `fin
 
 ## 3. Deploy the Telegram capture Worker
 
+The Telegram Worker is a thin webhook adapter — it delegates capture to the MCP Worker via a Service Binding. It only needs Telegram and Supabase (for dedup) secrets. AI model config lives on the MCP Worker.
+
 ```bash
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_WEBHOOK_SECRET   # generate: openssl rand -hex 32
-wrangler secret put OPENROUTER_API_KEY
 wrangler secret put SUPABASE_URL
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put ALLOWED_CHAT_IDS          # comma-separated Telegram chat IDs
@@ -70,15 +71,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 
 Send a message to your bot to verify. You should get a structured confirmation back within ~5 seconds.
 
-### Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `CAPTURE_MODEL` | `anthropic/claude-haiku-4-5` | LLM for note structuring |
-| `EMBED_MODEL` | `openai/text-embedding-3-small` | Embedding model |
-| `MATCH_THRESHOLD` | `0.60` | Cosine similarity floor for related-note lookup at capture time |
-
-Defaults live in `src/config.ts`. Override via `wrangler.toml` `[vars]`.
+The Telegram Worker has no configurable model/threshold settings — all capture configuration lives on the MCP Worker (see section 4).
 
 ## 4. Deploy the MCP Worker
 
@@ -174,17 +167,19 @@ The structural contract (JSON schema, field enums, link rules) lives in `SYSTEM_
 ## Environment variables reference
 
 ```
-# Required — no defaults
+# Telegram Worker — required, no defaults
 TELEGRAM_BOT_TOKEN          # from BotFather
 TELEGRAM_WEBHOOK_SECRET     # openssl rand -hex 32
-OPENROUTER_API_KEY          # from openrouter.ai
-SUPABASE_URL                # from Supabase dashboard → Project Settings → API
-SUPABASE_SERVICE_ROLE_KEY   # from Supabase dashboard → Project Settings → API
+SUPABASE_URL                # from Supabase dashboard → Project Settings → API (for dedup only)
+SUPABASE_SERVICE_ROLE_KEY   # from Supabase dashboard → Project Settings → API (for dedup only)
 ALLOWED_CHAT_IDS            # comma-separated Telegram chat IDs
 
-# MCP Worker secrets
+# MCP Worker secrets — required
+OPENROUTER_API_KEY          # from openrouter.ai
 MCP_API_KEY                 # openssl rand -hex 32
 CONSENT_SECRET              # openssl rand -hex 16
+SUPABASE_URL                # from Supabase dashboard → Project Settings → API
+SUPABASE_SERVICE_ROLE_KEY   # from Supabase dashboard → Project Settings → API
 
 # Gardener Worker secrets (optional)
 TELEGRAM_BOT_TOKEN          # same as capture Worker — enables failure alerts
