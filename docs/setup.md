@@ -1,6 +1,6 @@
 # Setup guide
 
-Full step-by-step instructions for deploying ContemPlace. Pick the modules you need — the MCP Worker is the only required piece.
+Full step-by-step instructions for deploying ContemPlace. The system has three Workers — deploy the MCP Worker (required), then optionally add the Telegram bot and Gardener.
 
 Run all commands from the repository root unless stated otherwise.
 
