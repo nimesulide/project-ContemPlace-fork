@@ -242,7 +242,23 @@ npx wrangler dev -c gardener/wrangler.toml --test-scheduled
 12. **Stylistic prompt rules (title style, body rules, traceability) must come from `capture_profiles` table**, never hardcoded in source. Edit the DB row to tune capture behavior without redeploying.
 13. **JSONB columns (`entities`, `metadata`) contain LLM-generated content** — never interpolate their values into raw SQL strings.
 
-## Capture Logic (v2)
+## Corpus Re-capture Checklist
+
+When rebuilding the corpus from `raw_input` (e.g., after schema changes that affect embeddings):
+
+1. **Pre-flight:** Verify `SYSTEM_FRAME` in `mcp/src/capture.ts` is current
+2. **Pre-flight:** Verify `capture_profiles` DB row reflects the latest voice rules — update it BEFORE the batch, not after
+3. **Pre-flight:** Verify migration seed matches the live DB row (so future deploys stay in sync)
+4. **Disable Telegram webhook** before schema changes
+5. **Apply schema** → deploy Workers in order (MCP → Telegram → Gardener)
+6. **Re-register webhook**
+7. **Re-capture** in chronological order (oldest first) so `match_notes` builds the link graph progressively
+8. **Trigger gardener** for similarity links and tag normalization
+9. **Run all test suites** — smoke, integration, semantic
+
+Script note: Python's default `urllib` user-agent gets blocked by Cloudflare bot protection (error 1010). Always set a custom `User-Agent` header when hitting CF Workers from scripts.
+
+## Capture Logic (v3)
 
 1. Worker receives Telegram webhook POST
 2. Verify `x-telegram-bot-api-secret-token` header — return 403 if missing/wrong
