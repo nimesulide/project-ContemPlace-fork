@@ -769,3 +769,22 @@ A dedicated `belief` tag was considered and rejected. It would only add value fo
 **Product reframe:** The user doesn't enjoy the administrative process of organizing notes — they want the results. ContemPlace's promise: frictionless fragment capture on the input side, trusted synthesis on the output side. You get the results without the process.
 
 **Source:** Issue #116. Literature basis in #116 comment. Decision chain: #93 → #103 → #116.
+
+## Drop SKOS tag normalization — free tags are sufficient
+
+**Decision (2026-03-14):** Drop the SKOS controlled vocabulary layer entirely. Keep capture-time free tags (2–7 per fragment). Remove the `concepts` table, `note_concepts` junction, `notes.refined_tags` column, the gardener's tag normalization phase, and the `list_unmatched_tags` / `promote_concept` MCP tools.
+
+**Why:** Investigation (#105) against the live corpus (81 notes) showed the SKOS layer produces output that nothing consumes:
+- 50 unmatched tags — the controlled vocabulary covers less than half the tag surface.
+- `laser-cutting` appears unmatched despite being in seed data — the system doesn't maintain itself.
+- No retrieval tool reads `refined_tags` or queries `note_concepts`. All search is embedding-based.
+- The similarity linker and embedding augmentation both use raw `notes.tags`, not `refined_tags`.
+- Embedding search already handles synonym collapse — vector similarity does what SKOS was built for.
+
+The curation burden (monitoring unmatched tags, promoting concepts, maintaining alt_labels) conflicts with the user's stated preference: "I want the garden, not the weeding." The fragment-first philosophy (#116) favors emergent structure over imposed taxonomy.
+
+**What stays:** Capture-time free tags serve two purposes that don't require normalization: human-readable feedback in the Telegram reply, and embedding augmentation input (`[Tags: ...] text`).
+
+**What this supersedes:** The SKOS vocabulary normalizer decision (2026-03-10) and its three sub-decisions (vocabulary scope, matching strategy, refined_tags semantics). Those were sound engineering given the premise that controlled vocabulary adds retrieval value. The premise turned out to be wrong — embeddings already solve the problem SKOS was meant to address.
+
+**Source:** Issue #105. Implementation in #122 (bundled with #117). Decision chain: #93 → #105 → #122.
