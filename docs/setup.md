@@ -295,6 +295,15 @@ The structural contract (JSON schema, field enums, link rules) lives in `SYSTEM_
 
 ## Troubleshooting
 
+### Viewing Worker logs
+
+All Workers emit structured JSON logs. Two ways to see them:
+
+- **Real-time streaming** — `wrangler tail` for the Telegram Worker, `wrangler tail -c mcp/wrangler.toml` for the MCP Worker, `wrangler tail -c gardener/wrangler.toml` for the Gardener. Shows logs as requests come in. Useful for debugging a specific request.
+- **Persistent logs** — in the Cloudflare dashboard, go to Workers & Pages → select the Worker → Logs. Enable "Workers Logs" to store logs for later inspection. Useful when you're not watching in real time.
+
+Start here when something isn't working — the logs usually tell you exactly what failed.
+
 ### "Unauthorized" or "invalid or missing token" when hitting the MCP Worker URL
 
 The MCP Worker requires authentication on every request. You cannot test it by opening the URL in a browser — that will always fail. Use the curl command from step 5 with your `MCP_API_KEY`, or connect via Claude.ai (OAuth) or Claude Code CLI (static token).
@@ -312,6 +321,20 @@ Check in order:
 ### `wrangler deploy` fails with KV namespace error
 
 The KV namespace ID in `mcp/wrangler.toml` is account-specific. If you cloned the repo, you need to create your own namespace — see step 5 "Create the KV namespace."
+
+### Writes fail or search always returns empty results
+
+Most likely you're using the **anon key** instead of the **service role key** for `SUPABASE_SERVICE_ROLE_KEY`. The anon key looks similar (both start with `eyJ...`) but has no write access due to RLS.
+
+Verify which key you have:
+
+```bash
+echo "$SUPABASE_SERVICE_ROLE_KEY" | cut -d. -f2 | base64 -d 2>/dev/null
+```
+
+You should see `"role":"service_role"`. If you see `"role":"anon"`, go to the Supabase dashboard → Project Settings → API → scroll to `service_role` → click **Reveal** → copy that key instead.
+
+The Workers also validate this at startup — if you deploy with the wrong key, the Worker logs will show: `SUPABASE_SERVICE_ROLE_KEY has role "anon" — expected "service_role"`.
 
 ### `wrangler secret put` or `wrangler deploy` fails with auth error
 
