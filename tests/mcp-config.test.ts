@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { loadConfig } from '../mcp/src/config';
 import type { Env } from '../mcp/src/types';
 
+// Build test JWTs from parts to avoid secret-scanning false positives.
+// These are fabricated tokens with signature "fakesig" — not real credentials.
+const HEADER = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+const ANON_PAYLOAD = btoa(JSON.stringify({ role: 'anon', iss: 'supabase' }));
+const SERVICE_PAYLOAD = btoa(JSON.stringify({ role: 'service_role', iss: 'supabase' }));
+const FAKE_SIG = 'fakesig';
+const ANON_JWT = `${HEADER}.${ANON_PAYLOAD}.${FAKE_SIG}`;
+const SERVICE_JWT = `${HEADER}.${SERVICE_PAYLOAD}.${FAKE_SIG}`;
+
 const VALID_ENV: Env = {
   MCP_API_KEY: 'key',
   OPENROUTER_API_KEY: 'or-key',
@@ -102,14 +111,12 @@ describe('loadConfig', () => {
   });
 
   it('throws when SUPABASE_SERVICE_ROLE_KEY is an anon key JWT', () => {
-    const anonJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.fakesig';
-    expect(() => loadConfig(env({ SUPABASE_SERVICE_ROLE_KEY: anonJwt }))).toThrow('expected "service_role"');
+    expect(() => loadConfig(env({ SUPABASE_SERVICE_ROLE_KEY: ANON_JWT }))).toThrow('expected "service_role"');
   });
 
   it('accepts a service_role JWT for SUPABASE_SERVICE_ROLE_KEY', () => {
-    const serviceJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UifQ.fakesig';
-    const config = loadConfig(env({ SUPABASE_SERVICE_ROLE_KEY: serviceJwt }));
-    expect(config.supabaseServiceRoleKey).toBe(serviceJwt);
+    const config = loadConfig(env({ SUPABASE_SERVICE_ROLE_KEY: SERVICE_JWT }));
+    expect(config.supabaseServiceRoleKey).toBe(SERVICE_JWT);
   });
 
   it('accepts a non-JWT string for SUPABASE_SERVICE_ROLE_KEY', () => {
