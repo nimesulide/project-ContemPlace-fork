@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-ContemPlace is a cloud-hosted personal memory system. Telegram → Cloudflare Worker → structured note in Postgres (pgvector) → confirmation back to Telegram. An MCP server (Phase 2a, complete) exposes the note graph to AI agents via semantic search. A gardening pipeline (Phase 2b) runs nightly similarity linking.
+ContemPlace is a modern commonplace book that auto-gardens into an MCP-connected PKM system. Capture idea fragments from Telegram or any MCP client — the system structures, embeds, and links them into a searchable knowledge graph in Postgres (pgvector). A nightly gardening pipeline surfaces similarity connections.
 
-It is not a notes app. Notes are written by the capture agent, not the user. Users send raw input and receive confirmations. The raw input is always preserved alongside the structured note.
+It is not a notes app. Notes are written by the capture agent, not the user. Users send raw input and receive confirmations. The raw input is always preserved alongside the structured fragment.
 
 ## Stack
 
@@ -220,7 +220,7 @@ npx wrangler dev -c gardener/wrangler.toml --test-scheduled
 
 1. **Embedding dimension is 1536**. Default output of `text-embedding-3-small`, no `dimensions` parameter. Changing after first insert requires a full table rewrite and re-embed of all notes.
 2. **All AI calls via OpenRouter** at `https://openrouter.ai/api/v1`. Use the `openai` npm package with `baseURL` override.
-3. **All DB access uses `SUPABASE_SERVICE_ROLE_KEY`**, never the anon key.
+3. **All DB access uses `SUPABASE_SERVICE_ROLE_KEY`**, never the anon key. All three Workers validate at startup that the key is a service_role JWT — using the anon key throws immediately with an actionable error.
 4. **Use `<=>` operator** for cosine distance in pgvector (not `<->` which is L2). In RPC functions created via migrations, use `OPERATOR(extensions.<=>)` — PostgREST cannot resolve pgvector operators via `search_path` alone.
 5. **`source` field is always set** at insert — never null.
 6. **Register Telegram webhook after deploying the Worker**, not before.
