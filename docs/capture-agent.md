@@ -95,6 +95,10 @@ The agent may clean up grammar, remove filler, and lightly restructure — but i
 
 **Question preservation** (added PR #76): If the input contains questions, they must be preserved as questions in the body. The agent must not answer them, synthesize related notes into an answer, or reframe them as statements. Related notes are for linking context only — never fold their content into the body. This rule lives in SYSTEM_FRAME (structural correctness), not the capture voice (stylistic).
 
+**Sentiment preservation** (added 2026-03-15 audit): The user's evaluative stance and emotional reactions must be preserved — "I liked," "I'm missing," "it felt like." The agent must not neutralize sentiment or rewrite personal reactions as neutral descriptions. Dropping "I liked how it showed" to "The film showed" violates the traceability rule by removing the user's expressed stance.
+
+**Title register** (added 2026-03-15 audit): Titles must use the user's vocabulary, not academic equivalents or genre classifications. If the user said "ongoing series like Community," the title should not say "ensemble comedies." If the user said "agreed upon preference," the title should not say "contingent agreements." The claim in the title must be derivable from the user's words in their register.
+
 **Body length** (updated #108): No fixed sentence count. The body is as long as it needs to be to land the idea faithfully — typically 1–4 sentences. Shorter is better than padded, but completeness beats brevity when the idea requires it. The previous "up to 8 sentences" ceiling was removed; the principle replaces the heuristic.
 
 This rule exists because the capture LLM (Haiku) tends to add a summarizing conclusion that restates what the user's words already showed. The traceability rule explicitly prohibits this. The user's raw input is the source of truth; the structured note is a cleaned-up presentation of it, not an interpretation.

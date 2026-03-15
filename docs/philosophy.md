@@ -83,9 +83,9 @@ The user doesn't enjoy the administrative process of organizing and gardening no
 
 The capture agent doesn't compress, interpret, or add inferred meanings. It transcribes, not synthesizes. Every sentence in the body traces back to something the user actually said. The body is a faithful presentation of the user's words, not an interpretation of them.
 
-If the input is short, the body is short. If it contains questions, they stay as questions — never answered using related notes. If a word was misheard by voice dictation, the correction is logged transparently.
+If the input is short, the body is short. If it contains questions, they stay as questions — never answered using related notes. If a word was misheard by voice dictation, the correction is logged transparently. If the user expresses a reaction or emotion — "I liked," "I'm missing," "it felt like" — that sentiment stays. The agent doesn't neutralize reactions into neutral descriptions. Titles use the user's vocabulary, not academic equivalents.
 
-*Source: #93 storage philosophy decision (2026-03-13). Traceability rule in `capture-agent.md`. Anti-hallucination rules in SYSTEM_FRAME (PR #76).*
+*Source: #93 storage philosophy decision (2026-03-13). Traceability rule in `capture-agent.md`. Anti-hallucination rules in SYSTEM_FRAME (PR #76). Sentiment and register rules from 2026-03-15 capture audit.*
 
 ### 9. Incremental formalization
 
