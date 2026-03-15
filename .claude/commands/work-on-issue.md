@@ -10,8 +10,8 @@ $ARGUMENTS — the issue number (e.g., "#47", "47") or a short description of wh
 
 ### Phase 1: Gather context
 
-1. **Fetch the issue** (or create one if only a description was given). Read the full issue body.
-2. **Fetch related issues** referenced in the body or that share labels/topics.
+1. **Fetch the issue** (or create one if only a description was given). Read the full issue body. Use the GitHub MCP `get_issue` tool for individual issues.
+2. **Fetch related issues** referenced in the body or that share labels/topics. For bulk listing, use `gh issue list -R freegyes/project-ContemPlace --json number,title,labels` via Bash — the GitHub MCP `list_issues` tool returns enormous payloads (200K+ characters) that waste context.
 3. **Read the relevant source files** — whatever the issue touches. Use the project layout in CLAUDE.md to find the right files. Read them, don't guess.
 4. **Check memory** — search MEMORY.md and topic files in the memory directory for prior context on this area.
 5. **Check the note database** — if the issue touches capture quality, linking, search, or tag behavior, use `search_notes` or `list_recent` via MCP to surface real-world examples. The notes themselves are evidence of how the system behaves.

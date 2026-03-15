@@ -19,18 +19,21 @@ Run these MCP searches in parallel. Cast a wide net — the user captures though
 5. **`search_notes`** — query: "linking and synthesis"
 6. If `$ARGUMENTS` provides a focus term, add a targeted search for that term.
 
-Deduplicate results by note ID. For each unique note, call **`get_note`** to get the full record (raw_input, title, body, tags, created_at). Run in parallel batches.
+Deduplicate results by note ID. The search results already include body text — only call **`get_note`** for fragments that look actionable (to get `raw_input` for quoting). Don't fetch full records for everything; it's expensive and most older fragments won't survive filtering.
 
 Also call **`list_recent`** with limit 20 and scan for any fragments that touch ContemPlace/PKM topics but didn't match the keyword searches. The user often captures system ideas without naming the system explicitly — look for fragments about workflows, information structure, tagging, memory, curation, friction, tools.
 
+**Weight recent fragments heavily.** Fragments from the last 48-72 hours are where actionable material lives. Older fragments from the initial corpus load are likely already encoded in `docs/philosophy.md`, existing issues, or ADRs. Don't re-surface design principles that are already planted — only older fragments that represent genuinely untracked ideas.
+
 ### Phase 2: Pull open GitHub issues
 
-Fetch the current issue landscape:
+Fetch the current issue landscape using `gh` CLI via Bash to get a concise list (the GitHub MCP list_issues tool returns enormous payloads):
 
-1. **List open issues** on `freegyes/project-ContemPlace` — all labels, sorted by updated.
-2. **List open issues labeled `enhancement`** specifically.
-3. **List open issues labeled `question`** specifically.
-4. **Check memory** for project status and recent decisions — some captured ideas may already be resolved.
+```bash
+gh issue list -R freegyes/project-ContemPlace --state open --limit 100 --json number,title,labels
+```
+
+Also **check memory** for project status and recent decisions — some captured ideas may already be resolved.
 
 Run in parallel with Phase 1.
 
@@ -48,9 +51,10 @@ For each relevant fragment from Phase 1, classify it:
 
 For each actionable or design-reflection fragment:
 
-1. **Search open issues** for overlap. Does an existing issue already cover this idea? Check title, body, and comments.
+1. **Check whether an existing issue *actually covers* this idea.** Don't force-match to the closest issue — if the fragment is about a distinct concern that only looks adjacent, it's a new issue, not a comment. The bar for "already covered" is high: the existing issue must address the same core question, not merely touch a related topic.
 2. **Check closed issues** — was this already shipped? If so, note the resolution.
-3. **Assess freshness** — when was the fragment captured vs. when was the matching issue last updated? Has the user's thinking evolved since the issue was written?
+3. **Check memory and ADRs** — is this tension already resolved by a decision? If so, it belongs in "already resolved," not "tensions with current direction." Only flag a tension if the fragment genuinely challenges a decision that might need revisiting.
+4. **Assess freshness** — when was the fragment captured vs. when was the matching issue last updated? Has the user's thinking evolved since the issue was written?
 
 Categorize each fragment into one of:
 - **New issue candidate** — no existing issue covers this. Worth opening.
@@ -102,6 +106,9 @@ Brief list — fragment title, what resolved it. Confirms the system is working.
 - **The user's words are the material.** Quote `raw_input`, don't paraphrase. The whole point is surfacing what the user actually said.
 - **Don't manufacture relevance.** If a fragment mentions "notes" in a completely unrelated context, skip it. Only surface fragments where the user is genuinely thinking about their knowledge system.
 - **Freshness matters.** A fragment captured yesterday about synthesis is more interesting than one from two weeks ago that predates a major architectural decision. Weight recent thinking higher.
-- **Respect closed decisions.** If the user captured "maybe we should add SKOS back" but SKOS was deliberately dropped (ADR in decisions.md), flag the tension — don't propose reopening it as if the decision never happened.
+- **Respect closed decisions.** If the user captured "maybe we should add SKOS back" but SKOS was deliberately dropped (ADR in decisions.md), flag the tension — don't propose reopening it as if the decision never happened. If a fragment's concern is already resolved by a known decision or shipped feature, classify it as resolved — don't present it as an open tension.
+- **Don't force-match fragments to issues.** A fragment about URL metadata is not a comment on #9 (bare link capture) just because both mention URLs. If the fragment raises a distinct concern, it's a new issue. The bar for "this enriches an existing issue" is that the fragment addresses the *same core question* the issue tracks.
+- **Present with less interpretation.** Show what was found and let the user decide what category it fits. Don't assert classifications with high confidence when the fragment could reasonably be read multiple ways. When unsure whether something is a comment on an existing issue or a new issue, say so.
+- **Skip fragments already encoded in docs.** Design principles that are in `docs/philosophy.md` or well-established ADRs aren't harvest material — they're already planted. Only re-surface older fragments if they represent genuinely untracked ideas.
 - **Keep it tight.** A harvest with 3 strong candidates is better than 10 padded ones. If the corpus has nothing actionable right now, say so in one line.
 - **This is a curatorial tool, not an idea generator.** You're surfacing the user's own thinking, not adding yours. If you see a gap the user hasn't thought about, you can mention it as an open question — but the harvest itself is their material.
