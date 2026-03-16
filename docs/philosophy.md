@@ -95,7 +95,17 @@ Good balance is the key. The system adds structure through capture (title, tags,
 
 *Source: #116 (2026-03-14). Literature basis: Shipman & Marshall, "Formality Considered Harmful" (1999).*
 
-### 10. Your data, any agent
+### 10. Automate everything that isn't thinking
+
+Setup, deployment, configuration registration, migration — anything the system can do for you, it should. Every manual step is a chance for a missed configuration and a tax on the user's attention. The deploy pipeline exists to eliminate that tax. If a step can be automated, it belongs in the pipeline, not in a setup guide.
+
+This extends beyond operations. The capture pipeline structures your input so you don't have to. The gardener links notes so you don't have to. The system handles embedding, voice correction, tag assignment — all so the user's cognitive bandwidth is preserved for the thing that actually matters: thinking.
+
+The user should never spend time on something the system could have handled. Guard rails and validation catch mistakes; automation prevents them from being possible in the first place.
+
+*Source: deploy.sh bot command registration discussion (2026-03-16). Extends #7 (low friction) from capture to the entire system surface.*
+
+### 11. Your data, any agent
 
 The irreducible core of ContemPlace is the database + MCP surface + gardening pipeline. The gardener is what turns the commonplace book into a PKM system — without it, you have a note store; with it, you have a connected knowledge graph. Everything else — the Telegram bot, import tools, a dashboard — is an optional input or presentation layer.
 

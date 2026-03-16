@@ -68,9 +68,9 @@ Every model is an environment variable. All AI calls route through OpenRouter �
 
 **You decide what goes in.** No background scraping, no automatic capture. You send what you want captured, and you're the quality gate. The system trusts your judgment — guard rails and warnings are fine, but your editorial control is what keeps the knowledge base honest. [The curator principle →](docs/philosophy.md#7-low-friction-aware-curator)
 
-**No lock-in.** Postgres you can query and export any time. MCP means any compatible agent works — Claude, ChatGPT, Cursor, custom scripts. Switch tools whenever you want. The database doesn't care who's reading it. [Data ownership →](docs/philosophy.md#10-your-data-any-agent)
+**No lock-in.** Postgres you can query and export any time. MCP means any compatible agent works — Claude, ChatGPT, Cursor, custom scripts. Switch tools whenever you want. The database doesn't care who's reading it. [Data ownership →](docs/philosophy.md#11-your-data-any-agent)
 
-The [full design philosophy](docs/philosophy.md) has ten principles with the reasoning behind each — not marketing copy, but the actual design constraints the system is built against.
+The [full design philosophy](docs/philosophy.md) has eleven principles with the reasoning behind each — not marketing copy, but the actual design constraints the system is built against.
 
 ## Get started
 
