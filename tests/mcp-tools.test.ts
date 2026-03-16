@@ -19,6 +19,9 @@ vi.mock('../mcp/src/db', () => ({
   insertNote: vi.fn().mockResolvedValue('aaaaaaaa-0000-0000-0000-000000000001'),
   insertLinks: vi.fn().mockResolvedValue(undefined),
   logEnrichments: vi.fn().mockResolvedValue(undefined),
+  fetchNoteForArchive: vi.fn().mockResolvedValue(null),
+  archiveNote: vi.fn().mockResolvedValue(undefined),
+  hardDeleteNote: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../mcp/src/embed', () => ({
@@ -46,6 +49,7 @@ import {
   handleListRecent,
   handleGetRelated,
   handleCaptureNote,
+  handleArchiveNote,
 } from '../mcp/src/tools';
 import {
   searchNotes,
@@ -57,6 +61,9 @@ import {
   insertNote,
   insertLinks,
   logEnrichments,
+  fetchNoteForArchive,
+  archiveNote,
+  hardDeleteNote,
 } from '../mcp/src/db';
 import { embedText } from '../mcp/src/embed';
 import { runCaptureAgent } from '../mcp/src/capture';
@@ -72,6 +79,7 @@ const MOCK_CONFIG: Config = {
   embedModel: 'openai/text-embedding-3-small',
   matchThreshold: 0.60,
   searchThreshold: 0.35,
+  hardDeleteWindowMinutes: 11,
 };
 
 const mockDb = {} as unknown as SupabaseClient;
@@ -555,6 +563,199 @@ describe('handleCaptureNote', () => {
       vi.mocked(insertNote).mockRejectedValueOnce(new Error('DB error'));
       const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG));
       expect(r.isError).toBe(true);
+    });
+  });
+});
+
+// ── handleArchiveNote ────────────────────────────────────────────────────────
+
+// Helper: note created N minutes ago
+function minutesAgo(n: number): string {
+  return new Date(Date.now() - n * 60 * 1000).toISOString();
+}
+
+describe('handleArchiveNote', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  describe('input validation', () => {
+    it('returns error when id is missing', async () => {
+      const r = toolResult(await handleArchiveNote({}, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+      expect(r.content[0]!.text).toMatch(/id is required/);
+    });
+
+    it('returns error when id is not a string', async () => {
+      const r = toolResult(await handleArchiveNote({ id: 123 }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+    });
+
+    it('returns error when id fails UUID format', async () => {
+      const r = toolResult(await handleArchiveNote({ id: 'not-a-uuid' }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+      expect(r.content[0]!.text).toMatch(/Invalid UUID/);
+    });
+  });
+
+  describe('note lookup', () => {
+    it('returns "not found" when note does not exist', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce(null);
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+      expect(r.content[0]!.text).toMatch(/not found/i);
+    });
+
+    it('returns success for already-archived note (idempotent)', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(60),
+        archived_at: minutesAgo(5),
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(false);
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.archived).toBe(true);
+      expect(body.id).toBe(VALID_UUID);
+    });
+
+    it('does not call archiveNote or hardDeleteNote for already-archived note', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(60),
+        archived_at: minutesAgo(5),
+      });
+      await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG);
+      expect(vi.mocked(archiveNote)).not.toHaveBeenCalled();
+      expect(vi.mocked(hardDeleteNote)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hard delete path (within grace window)', () => {
+    it('hard-deletes a note created 2 minutes ago', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(2),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(false);
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.deleted).toBe(true);
+      expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledWith(mockDb, VALID_UUID);
+      expect(vi.mocked(archiveNote)).not.toHaveBeenCalled();
+    });
+
+    it('hard-deletes a note created 9 minutes ago (still within 11-minute window)', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(9),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.deleted).toBe(true);
+      expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('soft archive path (beyond grace window)', () => {
+    it('soft-archives a note created 15 minutes ago', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(15),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(false);
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.archived).toBe(true);
+      expect(body.id).toBe(VALID_UUID);
+      expect(vi.mocked(archiveNote)).toHaveBeenCalledWith(mockDb, VALID_UUID);
+      expect(vi.mocked(hardDeleteNote)).not.toHaveBeenCalled();
+    });
+
+    it('soft-archives a note created exactly at the grace window boundary', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(11),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.archived).toBe(true);
+      expect(vi.mocked(archiveNote)).toHaveBeenCalledOnce();
+      expect(vi.mocked(hardDeleteNote)).not.toHaveBeenCalled();
+    });
+
+    it('soft-archives a note created 24 hours ago', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(60 * 24),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.archived).toBe(true);
+    });
+  });
+
+  describe('error handling', () => {
+    it('returns toolError when fetchNoteForArchive throws', async () => {
+      vi.mocked(fetchNoteForArchive).mockRejectedValueOnce(new Error('DB error'));
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+      expect(r.content[0]!.text).toMatch(/Archive operation failed/);
+    });
+
+    it('returns toolError when hardDeleteNote throws', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(2),
+        archived_at: null,
+      });
+      vi.mocked(hardDeleteNote).mockRejectedValueOnce(new Error('DB error'));
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+    });
+
+    it('returns toolError when archiveNote throws', async () => {
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(60),
+        archived_at: null,
+      });
+      vi.mocked(archiveNote).mockRejectedValueOnce(new Error('DB error'));
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      expect(r.isError).toBe(true);
+    });
+  });
+
+  describe('config usage', () => {
+    it('uses config.hardDeleteWindowMinutes for the threshold', async () => {
+      // 5 minutes ago, with a 3-minute window → should soft-archive
+      const shortWindowConfig = { ...MOCK_CONFIG, hardDeleteWindowMinutes: 3 };
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(5),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, shortWindowConfig));
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.archived).toBe(true);
+      expect(vi.mocked(archiveNote)).toHaveBeenCalledOnce();
+    });
+
+    it('hard-deletes with a longer grace window', async () => {
+      // 5 minutes ago, with a 30-minute window → should hard-delete
+      const longWindowConfig = { ...MOCK_CONFIG, hardDeleteWindowMinutes: 30 };
+      vi.mocked(fetchNoteForArchive).mockResolvedValueOnce({
+        id: VALID_UUID,
+        created_at: minutesAgo(5),
+        archived_at: null,
+      });
+      const r = toolResult(await handleArchiveNote({ id: VALID_UUID }, mockDb, longWindowConfig));
+      const body = JSON.parse(r.content[0]!.text);
+      expect(body.deleted).toBe(true);
+      expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledOnce();
     });
   });
 });

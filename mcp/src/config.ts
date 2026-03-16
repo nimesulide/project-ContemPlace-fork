@@ -9,6 +9,7 @@ export interface Config {
   embedModel: string;
   matchThreshold: number;
   searchThreshold: number;
+  hardDeleteWindowMinutes: number;
 }
 
 export function loadConfig(env: Env): Config {
@@ -23,6 +24,7 @@ export function loadConfig(env: Env): Config {
     embedModel: env.EMBED_MODEL || 'openai/text-embedding-3-small',
     matchThreshold: parseAndValidateThreshold(env.MATCH_THRESHOLD, 0.60, 'MATCH_THRESHOLD'),
     searchThreshold: parseAndValidateThreshold(env.MCP_SEARCH_THRESHOLD, 0.35, 'MCP_SEARCH_THRESHOLD'),
+    hardDeleteWindowMinutes: parsePositiveInt(env.HARD_DELETE_WINDOW_MINUTES, 11, 'HARD_DELETE_WINDOW_MINUTES'),
   };
 }
 
@@ -48,6 +50,14 @@ function validateServiceRoleKey(key: string): void {
   } catch (e) {
     if (e instanceof Error && e.message.includes('SUPABASE_SERVICE_ROLE_KEY')) throw e;
   }
+}
+
+function parsePositiveInt(value: string | undefined, defaultValue: number, varName: string): number {
+  const parsed = parseInt(value || String(defaultValue), 10);
+  if (isNaN(parsed) || parsed < 0) {
+    throw new Error(`Invalid ${varName}: "${value}" — must be a non-negative integer`);
+  }
+  return parsed;
 }
 
 function parseAndValidateThreshold(value: string | undefined, defaultValue: number, varName: string): number {

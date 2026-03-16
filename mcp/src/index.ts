@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { loadConfig } from './config';
 import { timingSafeEqual } from './auth';
 import { createOpenAIClient } from './embed';
-import { TOOL_DEFINITIONS, handleSearchNotes, handleGetNote, handleListRecent, handleGetRelated, handleCaptureNote } from './tools';
+import { TOOL_DEFINITIONS, handleSearchNotes, handleGetNote, handleListRecent, handleGetRelated, handleCaptureNote, handleArchiveNote } from './tools';
 import { runCapturePipeline } from './pipeline';
 import { AuthHandler } from './oauth';
 import type { Env } from './types';
@@ -101,6 +101,9 @@ export async function handleMcpRequest(request: Request, env: Env): Promise<Resp
         break;
       case 'capture_note':
         result = await handleCaptureNote(args, db, openai, config);
+        break;
+      case 'archive_note':
+        result = await handleArchiveNote(args, db, config);
         break;
       default:
         return jsonRpcError(id, -32601, `Unknown tool: ${toolName}`);

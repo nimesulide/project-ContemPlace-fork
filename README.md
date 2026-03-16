@@ -35,7 +35,7 @@ Postgres you can always query and export. The whole stack runs on free tiers. LL
 
 ## MCP tools
 
-The MCP server is the primary interface — five tools, usable by any MCP-capable agent:
+The MCP server is the primary interface — six tools, usable by any MCP-capable agent:
 
 | Tool | What it does |
 |---|---|
@@ -44,6 +44,7 @@ The MCP server is the primary interface — five tools, usable by any MCP-capabl
 | `list_recent` | Most recent notes, newest first. |
 | `get_related` | All linked notes in both directions with link types and confidence. |
 | `capture_note` | Pass raw words — the server runs the full capture pipeline. Do not pre-structure. |
+| `archive_note` | Remove a note. Recent notes are hard-deleted; older notes are soft-archived and recoverable. |
 
 **Auth:** OAuth 2.1 (Authorization Code + PKCE) for browser clients like Claude.ai, or a static Bearer token for CLI/SDK callers like Claude Code. Both paths are permanent.
 

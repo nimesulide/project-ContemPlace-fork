@@ -59,7 +59,7 @@ mcp/
     index.ts         # OAuthProvider setup, CaptureService entrypoint (WorkerEntrypoint), McpApiHandler, resolveExternalToken bypass
     pipeline.ts      # Single source of truth for capture logic — called by Service Binding RPC + capture_note tool
     oauth.ts         # Consent page HTML renderer + AuthHandler (GET/POST /authorize)
-    tools.ts         # Tool definitions + handlers (search_notes, get_note, list_recent, get_related, capture_note)
+    tools.ts         # Tool definitions + handlers (search_notes, get_note, list_recent, get_related, capture_note, archive_note)
     auth.ts          # Bearer token auth (validateAuth, isStaticTokenRequest, timingSafeEqual — constant-time comparison)
     config.ts        # Config loading with secret validation
     db.ts            # DB read/write functions (fetchNote, listRecentNotes, searchNotes, insertNote, …)
@@ -90,7 +90,7 @@ tests/
   mcp-auth.test.ts            # Unit tests for mcp/src/auth.ts
   mcp-config.test.ts          # Unit tests for mcp/src/config.ts
   mcp-embed.test.ts           # Unit tests for mcp/src/embed.ts
-  mcp-tools.test.ts           # Unit tests for all 5 MCP tool handlers (mocked deps, no network)
+  mcp-tools.test.ts           # Unit tests for all 6 MCP tool handlers (mocked deps, no network)
   mcp-dispatch.test.ts        # Unit tests for handleMcpRequest JSON-RPC dispatch (no network)
   mcp-index.test.ts           # Unit tests for OAuthProvider config + resolveExternalToken
   mcp-oauth.test.ts           # Unit tests for consent page rendering, AuthHandler, CONSENT_SECRET validation
@@ -129,6 +129,8 @@ CONSENT_SECRET              # protects OAuth consent page; generate with: openss
 MCP_SEARCH_THRESHOLD        # default: 0.35 — used only by search_notes. Lower than MATCH_THRESHOLD
                              # because stored embeddings are metadata-augmented; bare query vectors
                              # score 0.41–0.49 against them, well below the 0.60 capture threshold.
+HARD_DELETE_WINDOW_MINUTES  # default: 11 — grace window for archive_note. Notes younger than this
+                             # are hard-deleted; older notes are soft-archived (archived_at = now()).
 
 # Gardener Worker secrets (set via: wrangler secret put <NAME> -c gardener/wrangler.toml)
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are shared with the Telegram Worker above.
@@ -318,6 +320,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 - **Phase 2c (complete):** OAuth 2.1 for MCP server. Authorization Code + PKCE via `@cloudflare/workers-oauth-provider`, DCR enabled, `resolveExternalToken` for static token bypass, consent page protected by `CONSENT_SECRET`. Verified with Claude.ai web connector. Cursor/ChatGPT verification deferred (#102). Tagged `v3.0.0`.
 - **v3.1.0 (complete):** Drop type/intent/modality from capture pipeline (#110). Clean-slate v3 schema. 10-field → 7-field → 6-field LLM contract (entities removed from capture in #113). Embedding format simplified to `[Tags: ...] text`. Corpus re-captured from raw_input.
 - **v4.0.0 (complete):** Schema simplification bundle (#128, PR #131). Dropped 3 tables (concepts, note_concepts, note_chunks), 3 columns (refined_tags, maturity, importance_score), 2 RPC functions (match_chunks, batch_update_refined_tags). Link types simplified from 9 → 3 (contradicts, related, is-similar-to). MCP tools reduced from 8 → 5. Gardener simplified to similarity linking only.
+- **archive_note (complete):** MCP tool for note removal with grace-window hard delete (#87, PR #140). Notes < 11 min: hard delete. Older: soft archive. All existing tools now filter `archived_at IS NULL`. MCP tools 5 → 6.
 - **Phase 3 (deferred):** Associative trails, location extraction.
 
 ## Deploy
