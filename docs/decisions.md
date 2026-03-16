@@ -998,29 +998,3 @@ For hard-deleted notes, idempotency is impossible (the row is gone), so "not fou
 **What changed:** Tool name `archive_note` → `remove_note`. Handler `handleArchiveNote` → `handleRemoveNote`. Tool description rewritten to lead with the time-dependent behavior. Internal DB functions (`archiveNote`, `hardDeleteNote`, `fetchNoteForArchive`) unchanged — they accurately describe their DB-level operations.
 
 **Source:** Session reflection on naming contracts, 2026-03-16. New design principle #10 in `docs/philosophy.md`.
-
-## Extract-fragments: topic-driven re-capture, not file-based import (2026-03-16)
-
-**Decision:** The Obsidian import workflow is a topic-driven interactive session, not a file-based batch import. The user describes a topic ("I had thoughts about making a lap steel guitar"), the agent searches the Obsidian vault semantically, decomposes found material into fragments, re-voices them in the user's natural capture style, and presents them for interactive review. Approved fragments are captured via `capture_note`.
-
-**Key design choices:**
-
-1. **Topic-driven, not file-driven.** Input is a natural topic description, not a filename. The agent uses semantic search across the vault to find relevant material, which may span multiple files.
-
-2. **Re-voicing over verbatim.** The Obsidian files are heavily edited, LLM-synthesized prose — not how the user talks. Fragments are re-voiced to match the user's natural capture style, using existing ContemPlace captures as a style reference. The capture pipeline is tuned for natural voice; feeding it polished prose would produce different results.
-
-3. **No source prefixes in raw_input.** The fragment text is clean. Provenance is tracked via `source: "obsidian-import"` on the notes table, not by polluting the input with metadata wrappers.
-
-4. **Small-batch, high-touch.** 1-15 fragments per session, interactively reviewed. No batch mode. The user wants close editorial control, especially while learning to trust the command's re-voicing quality.
-
-5. **Self-improving.** Each session ends with a reflection phase where the agent identifies what corrections the user made and proposes updates to the command prompt itself.
-
-6. **Processed files marked in Obsidian frontmatter** (`contemplace: extracted`) to prevent re-processing.
-
-**Rejected alternatives:**
-- **File-based import** — forces the user to know which files to import. Topic search is more natural and can span multiple files.
-- **Verbatim capture** — LLM-synthesized prose produces different capture results (titles, tags, body style) than natural voice input. Re-voicing aligns the import with how the rest of the corpus sounds.
-- **Batch processing** — defeats the curator principle. The user needs to build trust in the re-voicing quality before scaling up.
-- **Source attribution prefix** (`[Imported from: file.md]`) — adds noise to `raw_input`. The `source` column is sufficient for provenance queries.
-
-**Source:** Issue #133, specialist review + user design session, 2026-03-16.

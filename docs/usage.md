@@ -141,10 +141,12 @@ You never organized anything. The structure emerged.
 
 ---
 
-## Importing from other systems
+## Bringing in existing notes
 
-If you have existing knowledge in an Obsidian vault — notes, reflections, synthesized documents — you can re-capture the ideas into ContemPlace using the `/extract-fragments` custom command in Claude Code.
+There's no automated import. ContemPlace captures fragments through `capture_note` — that's the only write path, and it runs the full pipeline (embedding, structuring, linking) on each input. Importing a thousand notes means a thousand pipeline runs, each with LLM calls and embeddings.
 
-You describe a topic: "I had thoughts about making a lap steel guitar." The agent searches your Obsidian vault semantically, finds relevant notes, decomposes them into discrete idea fragments, and re-voices each one in your natural capture style (using your existing ContemPlace fragments as a style reference). You review the proposed fragments interactively — approve, reject, rework, split, combine — and the approved ones get captured through the standard pipeline.
+What works instead is assisted re-capture: you sit with an agent, describe a topic from your existing notes, and the agent helps you extract and re-voice idea fragments that you then capture one by one. It's hands-on — you review each fragment before it enters the system.
 
-This is not a bulk import. It's a small-batch session (typically 1-15 fragments) where you exercise close editorial control. The command marks processed Obsidian files with a frontmatter tag to prevent re-processing, and ends each session with a reflection on your corrections so it improves over time.
+The repo includes an example of this workflow as a Claude Code custom command (`.claude/commands/extract-fragments.md`). It's designed for Obsidian vaults with semantic search via MCP, but the pattern applies to any source: find relevant material, decompose into fragments, re-voice in your natural capture style, review, capture. You'll need to set up your own MCP access to whatever source system you're importing from.
+
+This is a recipe, not a feature. It requires your editorial judgment at every step — which is the point. The system trusts you to decide what's worth re-capturing.
