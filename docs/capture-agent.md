@@ -116,6 +116,8 @@ The agent may clean up grammar, remove filler, and lightly restructure — but i
 
 **Title register** (added 2026-03-15 audit): Titles must use the user's vocabulary, not academic equivalents or genre classifications. If the user said "ongoing series like Community," the title should not say "ensemble comedies." If the user said "agreed upon preference," the title should not say "contingent agreements." The claim in the title must be derivable from the user's words in their register.
 
+**Commitment level** (added 2026-03-16 audit): Titles must preserve the user's commitment level. If the user said "try" or "maybe" or "consider," the title should reflect that tentativeness, not upgrade it to a definitive action or inferred purpose. "Try the Soldr soldering iron" should not become "Build the PCB to learn the Soldr soldering iron."
+
 **Body length** (updated #108): No fixed sentence count. The body is as long as it needs to be to land the idea faithfully — typically 1–4 sentences. Shorter is better than padded, but completeness beats brevity when the idea requires it. The previous "up to 8 sentences" ceiling was removed; the principle replaces the heuristic.
 
 This rule exists because the capture LLM (Haiku) tends to add a summarizing conclusion that restates what the user's words already showed. The traceability rule explicitly prohibits this. The user's raw input is the source of truth; the structured note is a cleaned-up presentation of it, not an interpretation.

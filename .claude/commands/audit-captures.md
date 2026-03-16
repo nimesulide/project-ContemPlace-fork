@@ -8,31 +8,50 @@ $ARGUMENTS — number of recent fragments to analyze (default: 10). Can also be 
 
 ## Workflow
 
-### Phase 1: Load the ethos
+### Phase 1: Load everything in parallel
 
-Read the product's design contract — these are the standards the audit measures against:
+Maximize the first parallel batch. Launch all of these simultaneously — the ethos reads and the data fetches have no dependencies on each other:
 
-1. **Read `docs/philosophy.md`** — the 10 core principles (fragments not atoms, trust contract, user voice sacred, emergent structure, etc.)
-2. **Read `docs/capture-agent.md`** — capture pipeline behavior, title model, linking logic, traceability rule, voice correction
+**Ethos reads:**
+1. **Read `docs/philosophy.md`** — the 10 core principles
+2. **Read `docs/capture-agent.md`** — capture pipeline behavior, title model, linking logic, traceability rules
 3. **Read `mcp/src/capture.ts`** — the live SYSTEM_FRAME (structural contract the LLM actually receives)
-4. **Fetch the live capture voice** — call `search_notes` with a dummy query is not the way; instead, note that the capture voice is fetched from `capture_profiles` at runtime. Read the seed in the v3 migration or check CLAUDE.md for the current version. The important thing is knowing what rules the LLM was given.
-5. **Read `docs/decisions.md`** — recent ADRs that set constraints (link type simplification, entity extraction removal, etc.)
 
-Do all reads in parallel.
+**Live capture voice** (authoritative source — the migration seed can drift):
+4. Fetch from the DB via Supabase REST API:
+```bash
+export $(grep -E '^(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY)=' .dev.vars | xargs) && \
+curl -s "${SUPABASE_URL}/rest/v1/capture_profiles?name=eq.default&select=capture_voice" \
+  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}"
+```
 
-### Phase 2: Fetch the fragments
+**Fragment data:**
+5. **`list_recent`** with the requested limit to get the sample set
 
-Use MCP tools to pull real captured data:
+Do NOT read `docs/decisions.md` in the initial batch — it's 100KB+ historical record of how decisions were made. The current rules are already covered by the documents above plus CLAUDE.md (always in context). If a finding seems to conflict with a design decision and you need to understand *why* a constraint exists before calling it a gap, read the relevant section of decisions.md at that point.
 
-1. **`list_recent`** with the requested limit to get the sample set.
-2. For each note in the sample, call **`get_note`** (for full record: raw_input, body, title, tags, corrections, source) and **`get_related`** (for all links: capture-time and gardener-time). Run these in parallel batches.
-3. Build a working dataset: for each fragment, you now have:
-   - `raw_input` (what the user actually said)
-   - `title`, `body`, `tags`, `corrections` (what the capture LLM produced)
-   - `source` (where it came from — telegram, mcp, claude-code, etc.)
-   - Capture-time links (`related`, `contradicts`) with target note titles
-   - Gardener-time links (`is-similar-to`) with confidence scores and shared tags
-   - `created_at` (when it was captured)
+### Phase 2: Fetch details and trigger gardener
+
+From the `list_recent` results, launch all of these in a single parallel batch:
+
+1. For each note: **`get_note`** (for raw_input and corrections — the audit's core comparison) and **`get_related`** (for all links). All calls in parallel.
+2. **Trigger the gardener** so that link analysis reflects current state, not stale nightly data:
+```bash
+export $(grep -E '^(GARDENER_WORKER_URL|GARDENER_API_KEY)=' .dev.vars | xargs) && \
+curl -s -X POST "${GARDENER_WORKER_URL}/trigger" \
+  -H "Authorization: Bearer ${GARDENER_API_KEY}" \
+  -H "Content-Type: application/json"
+```
+3. After the gardener completes, re-fetch `get_related` for a handful of fragments to pick up any new `is-similar-to` links. Don't re-fetch all — just 3-4 fragments that seem likely to cluster.
+
+**Working dataset per fragment:**
+- `raw_input` (what the user actually said)
+- `title`, `body`, `tags`, `corrections` (what the capture LLM produced)
+- `source` (where it came from — telegram, mcp, claude-code, etc.)
+- Capture-time links (`related`, `contradicts`) with target note titles
+- Gardener-time links (`is-similar-to`) with confidence scores and shared tags
+- `created_at` (when it was captured)
 
 If the argument is a tag filter (e.g., "tag:bookbinding"), use `search_notes` with `filter_tags` instead of `list_recent`.
 
@@ -47,11 +66,14 @@ Check each fragment for:
 - **Voice preservation**: Compare `raw_input` to `body`. Is the body a faithful presentation of the user's words, or did the LLM compress, interpret, or add meaning? Flag any sentence in the body that isn't traceable to the raw input.
 - **No contamination**: Does the body contain conclusions, inferences, or synthesized statements the user didn't express?
 - **Question preservation**: If the raw input contains questions, are they preserved as questions in the body? Or were they reframed as statements or answered?
+- **Sentiment preservation**: If the raw input contains evaluative stance ("I liked," "I'm missing," "it felt like"), is that preserved? Or was it neutralized into a description?
 - **Correction quality**: If `corrections` is present, are they plausible voice-dictation fixes? Any false corrections (changing a word the user meant)?
 
 #### 3b. Structural quality
 
 - **Title model**: Is the title a claim or question (good) or a topic label (bad)? Does the claim actually come from the user's words, or was it editorialized?
+- **Title register**: Does the title use the user's vocabulary, or does it substitute academic/formal equivalents?
+- **Commitment level**: If the user said "try," "maybe," "consider," does the title preserve that tentativeness? Or does it upgrade to definitive actions or inferred purposes?
 - **Tag quality**: Are tags specific enough (e.g., `cimbalom` not just `music`)? Is there a mix of specific subjects and broader categories? Any redundant or vague tags?
 - **Body length**: Is the body appropriately sized for the input? Too padded? Too compressed? Does it land the idea?
 
@@ -59,7 +81,7 @@ Check each fragment for:
 
 - **Link relevance**: For each capture-time link, assess: does this link add retrieval value? Would following this link help the user find related thinking?
 - **Link type accuracy**: Are `contradicts` links actually contradictions? Are `related` links meaningful connections or noise?
-- **Missed links**: Based on the fragment's content and tags, are there obvious connections the capture LLM missed? (Use `search_notes` with the fragment's key concepts to check.)
+- **Missed links**: Only check for fragments with 0 links or suspiciously few. Use `search_notes` with the fragment's key concepts. Don't do this for every fragment — the capture LLM sees 5 related notes and makes reasonable links in most cases.
 - **Over-linking**: Are there links that add no value — connecting notes just because they share a topic word?
 
 #### 3d. Gardening outcomes
@@ -67,6 +89,7 @@ Check each fragment for:
 - **Similarity links**: How many `is-similar-to` links did the gardener create for this note? Are the linked notes genuinely similar or just topically adjacent?
 - **Cluster membership**: Does this fragment belong to an emerging cluster? How many gardener links connect it to other fragments?
 - **Isolation**: Is this fragment an orphan (no links at all)? If so, is that expected given its content, or does it suggest a gap in the corpus?
+- **Capture vs. gardener overlap**: Do gardener links duplicate capture-time links (same pair, different type)? That's expected for strongly related notes — just note the pattern if it's widespread.
 
 ### Phase 4: Cross-fragment patterns (findings only)
 
@@ -74,14 +97,15 @@ Look across the full sample for systemic patterns. **Only report a pattern if th
 
 - **Tag consistency**: Are the same concepts tagged the same way across fragments, or are there inconsistencies (e.g., `bookbinding` vs `book-binding` vs `book-arts`)?
 - **Link density distribution**: What's the link count distribution? Are some fragments over-connected while others are isolated?
-- **Capture LLM tendencies**: Any recurring mistakes? (Adding concluding sentences, over-tagging, under-linking, editorializing titles, etc.)
-- **Input patterns**: What does the user actually send? Short bursts? Long reflections? Questions? Quotes? Does the system handle each type well?
+- **Capture LLM tendencies**: Any recurring mistakes? (Adding concluding sentences, over-tagging, under-linking, editorializing titles, upgrading commitment level, etc.)
+- **Input patterns**: What does the user actually send? Short bursts? Long reflections? Questions? Quotes? Tasks/action items? Does the system handle each type well?
+- **Burst captures**: claude-code captures often arrive in rapid bursts (multiple fragments within seconds from one conversation). Check whether bursts create redundant cross-linking or whether the progressive link building (each new fragment sees the ones before it) produces good results.
 - **Source distribution**: Where are captures coming from? (Telegram, MCP, claude-code, etc.)
-- **Temporal clustering**: Are there bursts of thematically related captures? Does the linking reflect those bursts?
+- **Gardener link distribution**: How many of the gardener's links landed on sample fragments vs. elsewhere in the corpus? Does the gardener favor certain fragment types (reflective vs. task-oriented)?
 
 ### Phase 5: Retrieval quality assessment
 
-Test whether the way fragments are captured serves retrieval downstream. This is the other end of the pipeline — does the structuring, tagging, and linking at capture time produce a corpus that's useful to query?
+Test whether the way fragments are captured serves retrieval downstream. Derive test queries from the sample's actual themes — don't just follow a formula.
 
 Run these searches against the live corpus and assess the results:
 
@@ -99,6 +123,7 @@ For each use case, rate: **works well** / **works but could be better** / **does
 #### Report header
 - Date, sample size, date range of fragments analyzed
 - Corpus stats: total notes (from list_recent with high limit), source breakdown, average links per note
+- Gardener run stats (from the trigger response): notes processed, links created/deleted
 
 #### Gaps (first)
 Where reality diverges from the philosophy. For each gap:
@@ -141,6 +166,8 @@ type: project
 ---
 
 **Date:** YYYY-MM-DD | **Sample:** N fragments | **Corpus:** N notes
+
+**Gardener:** N notes processed, N links created
 
 **Findings:**
 - [pattern found, severity, N/total affected]
