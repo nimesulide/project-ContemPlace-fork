@@ -20,11 +20,11 @@ Run these in parallel:
 
 1. **Search the Obsidian vault** for notes matching the topic in `$ARGUMENTS`. Use semantic search. Cast a wide net — the user may have written about the topic across multiple notes, under different headings, using different vocabulary.
 
-2. **Search ContemPlace** via `search_notes` for existing fragments related to the same topic. These serve two purposes:
-   - **Style reference**: The user's natural capture voice — sentence length, vocabulary, register, how they phrase claims vs. questions vs. observations. Pay attention to `raw_input` fields (their actual words) more than `body` (the capture agent's interpretation).
-   - **Overlap detection**: If ContemPlace already has fragments covering an idea from the Obsidian notes, don't re-extract that idea. The goal is to bring in what's missing, not duplicate what exists.
+2. **Search ContemPlace** via `search_notes` for existing fragments related to the same topic. This serves **overlap detection**: if ContemPlace already has fragments covering an idea from the Obsidian notes, don't re-extract that idea. The goal is to bring in what's missing, not duplicate what exists.
 
-3. **Also search ContemPlace** for fragments about writing style, tone of voice, or capture preferences. The user captures meta-preferences as fragments — these are direct instructions for how to re-voice.
+3. **Also search ContemPlace** for fragments about writing style, tone of voice, or capture preferences. The user captures meta-preferences as fragments — these tell you what to avoid (generalizations, principle-speak, cross-references baked in).
+
+4. **Search ContemPlace for real fragments in the same domain** — not the topic itself, but the same register. If the topic is lap steel guitar building, search for other making/building/fabrication fragments. Retrieve 5-10 of these. These are your primary voice calibration: they show you what the user's captures actually sound like in practice, not just what the user says they should sound like. The meta-preferences (step 3) define the guardrails; the domain fragments (this step) define the target.
 
 Read the full content of each relevant Obsidian note found in step 1. **Skip notes that have the frontmatter tag `contemplace: extracted`** — those were processed in a prior session.
 
@@ -39,6 +39,7 @@ For each relevant Obsidian note, identify discrete idea fragments. A fragment is
 - Quotes with attribution are standalone fragments.
 - Headers mark topic boundaries but are not fragments themselves.
 - Err on preserving the document's natural structure. If a paragraph is already a focused idea, take it whole. Do not try to extract sub-claims from well-integrated prose. Over-splitting is worse than under-splitting.
+- Watch for **conceptual bridges** hiding behind the primary idea. A note might describe what a specific instrument does (primary fragment) *and* name a broader design space that connects it to other ideas (separate fragment). These are distinct captures. Example: "the LOG has a sliding pickup" is one fragment; "electromagnetic pickups can be expressive sensing tools beyond string amplification" is another.
 
 **Strip Obsidian-specific syntax** during decomposition:
 - `[[page name]]` → plain text "page name"
@@ -73,6 +74,17 @@ The Obsidian notes are heavily edited, LLM-synthesized prose. The user didn't wr
 - Do not merge ideas from different parts of the source. One fragment, one idea.
 - Questions stay as questions. Claims stay as claims. Don't upgrade uncertainty to certainty.
 - If a fragment references a specific source (book, person, article), keep the reference.
+- **Strip cross-references.** Do not bake in connections like "same idea as X" or "same principle as Y." The Obsidian notes are full of wikilinks tying ideas together — those belong to the Obsidian graph, not to a raw capture. The ContemPlace capture pipeline discovers connections automatically through embedding similarity. A fragment should read like a standalone thought the user had, not a node in a knowledge graph.
+- **No principle-speak.** Fragments describe what to make, what was observed, or what happened — not universal truths or transferable principles. "Template-route a lap steel body from a single slab of wood" not "Template routing is a useful technique to learn for any shaped woodworking project." If a sentence could appear in a textbook, it's not re-voiced enough.
+
+### Phase 3b: Self-check against real fragments
+
+Before presenting to the user, sanity-check the re-voiced fragments against 3-5 real ContemPlace fragments from the same domain (retrieved in Phase 1 step 4). Put them side by side and ask: does my output read like these? Check for:
+- Cross-references that leaked in ("same idea as X", "connects to Y")
+- Principle-speak or generalizations the user would never say mid-capture
+- Register mismatch — too formal, too abstract, too polished
+
+If fragments fail the check, rework them before presenting. The user should see your best attempt, not a first draft that needs a correction round.
 
 ### Phase 4: Present for review
 
@@ -119,16 +131,26 @@ Captured N fragments:
 Skipped: #4 (user rejected), #6 (reworked into #7)
 ```
 
-### Phase 6: Mark processed Obsidian notes
+### Phase 6: Coverage check and mark processed Obsidian notes
 
-For each Obsidian note that had fragments extracted and captured, update its frontmatter to add:
+Before marking any note, review whether it contains ideas that weren't extracted. For each note, briefly assess: is the note fully covered by the captured fragments (including fragments captured in earlier sessions detected via overlap in Phase 1), or does it still hold ideas that weren't pulled out?
+
+Present a coverage summary:
+```
+Coverage:
+  - "note-title.md" — fully covered
+  - "other-note.md" — partial: the monochord-as-test-project idea wasn't extracted
+  - "third-note.md" — fully covered
+```
+
+Let the user decide whether to extract more or accept the gaps before marking.
+
+Then, for each note the user approves, update its frontmatter to add:
 ```yaml
 contemplace: extracted
 ```
 
 If the note already has frontmatter, add the field. If it doesn't, create a frontmatter block. This prevents re-processing in future sessions.
-
-If only some fragments from a note were captured, still mark it — the user reviewed the full note and made editorial decisions. A future session can revisit if needed.
 
 ### Phase 7: Reflect
 
