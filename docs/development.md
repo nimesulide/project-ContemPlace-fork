@@ -58,7 +58,7 @@ npx tsc --noEmit -p gardener/tsconfig.json  # Gardener Worker
 ## Deploy
 
 ```bash
-bash scripts/deploy.sh          # Full: schema → typecheck → unit tests → MCP Worker → Telegram Worker → Gardener Worker → smoke tests
+bash scripts/deploy.sh          # Full: schema → typecheck → unit tests → MCP Worker → Telegram Worker → bot commands → Gardener Worker → smoke tests
 bash scripts/deploy.sh --skip-smoke  # Skip end-to-end smoke tests
 
 # Individual Workers:
@@ -118,7 +118,7 @@ gardener/         Gardener Worker (nightly similarity linking)
     types.ts      TypeScript interfaces
   wrangler.toml
 scripts/
-  deploy.sh       Automated 7-step deploy pipeline
+  deploy.sh       Automated 8-step deploy pipeline
 supabase/
   migrations/     Schema migrations (v4 is current)
 tests/

@@ -79,7 +79,7 @@ gardener/
     auth.ts          # validateTriggerAuth() — Bearer token auth for /trigger endpoint
     types.ts         # Gardener-specific TypeScript interfaces
 scripts/
-  deploy.sh          # Automated 7-step deploy pipeline (schema → typecheck → unit tests → MCP Worker → Telegram Worker → Gardener Worker → smoke tests)
+  deploy.sh          # Automated 8-step deploy pipeline (schema → typecheck → unit tests → MCP Worker → Telegram Worker → bot commands → Gardener Worker → smoke tests)
 supabase/
   config.toml
   migrations/
@@ -315,16 +315,6 @@ curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
 
 Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"`
 
-## Registering Bot Commands
-
-One-time setup — registers `/start` and `/undo` in the Telegram "/" autocomplete menu:
-
-```bash
-curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
-  -H "Content-Type: application/json" \
-  -d '{"commands": [{"command": "start", "description": "Start the bot"}, {"command": "undo", "description": "Undo the most recent capture"}]}'
-```
-
 ## Phase Scope
 
 - **Phase 1 (complete):** Schema (notes, links, processed_updates), Telegram bot, Cloudflare Worker with async capture, chat ID whitelist, single capture mode, confirmation replies.
@@ -335,7 +325,7 @@ curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
 - **v3.1.0 (complete):** Drop type/intent/modality from capture pipeline (#110). Clean-slate v3 schema. 10-field → 7-field → 6-field LLM contract (entities removed from capture in #113). Embedding format simplified to `[Tags: ...] text`. Corpus re-captured from raw_input.
 - **v4.0.0 (complete):** Schema simplification bundle (#128, PR #131). Dropped 3 tables (concepts, note_concepts, note_chunks), 3 columns (refined_tags, maturity, importance_score), 2 RPC functions (match_chunks, batch_update_refined_tags). Link types simplified from 9 → 3 (contradicts, related, is-similar-to). MCP tools reduced from 8 → 5. Gardener simplified to similarity linking only.
 - **archive_note (complete):** MCP tool for note removal with grace-window hard delete (#87, PR #140). Notes < 11 min: hard delete. Older: soft archive. All existing tools now filter `archived_at IS NULL`. MCP tools 5 → 6.
-- **Telegram /undo (complete):** `/undo` command hard-deletes most recent Telegram capture within grace window (#142, PR #143). Source-scoped (Telegram only), grace-window-only (refuses after 11 min). Bot commands registered via `setMyCommands`.
+- **Telegram /undo (complete):** `/undo` command hard-deletes most recent Telegram capture within grace window (#142, PR #143). Source-scoped (Telegram only), grace-window-only (refuses after 11 min). Bot commands registered automatically by `deploy.sh`.
 - **Phase 3 (deferred):** Associative trails, location extraction.
 
 ## Deploy
@@ -354,10 +344,11 @@ The script runs in order:
 3. `vitest run` — parser + gardener unit tests (local, no network)
 4. `wrangler deploy -c mcp/wrangler.toml` — deploys MCP Worker (must go first — Service Binding target)
 5. `wrangler deploy` — deploys Telegram Worker
-6. `wrangler deploy -c gardener/wrangler.toml` — deploys Gardener Worker
-7. `vitest run tests/smoke.test.ts` — end-to-end smoke tests against live Worker
+6. `setMyCommands` — registers bot commands (`/start`, `/undo`) with Telegram
+7. `wrangler deploy -c gardener/wrangler.toml` — deploys Gardener Worker
+8. `vitest run tests/smoke.test.ts` — end-to-end smoke tests against live Worker
 
-Use `--skip-smoke` to skip step 7 and test manually.
+Use `--skip-smoke` to skip step 8 and test manually.
 
 ## Product Intent
 

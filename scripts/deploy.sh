@@ -50,14 +50,14 @@ echo "════════════════════════�
 echo ""
 
 # ── Step 1: Schema migration ──────────────────────────────────────────────────
-echo "▶  1/7  Applying schema migration..."
+echo "▶  1/8  Applying schema migration..."
 echo "   (drops v1 tables/functions, creates v2 schema + seed)"
 supabase db push --linked --yes
 echo "   ✓ Schema applied."
 echo ""
 
 # ── Step 2: Typecheck ─────────────────────────────────────────────────────────
-echo "▶  2/7  Typechecking..."
+echo "▶  2/8  Typechecking..."
 npx tsc --noEmit
 npx tsc --noEmit -p mcp/tsconfig.json
 npx tsc --noEmit -p gardener/tsconfig.json
@@ -65,7 +65,7 @@ echo "   ✓ No type errors."
 echo ""
 
 # ── Step 3: Unit tests ────────────────────────────────────────────────────────
-echo "▶  3/7  Unit tests..."
+echo "▶  3/8  Unit tests..."
 npx vitest run tests/parser.test.ts tests/gardener-similarity.test.ts tests/gardener-config.test.ts tests/gardener-alert.test.ts
 echo ""
 
@@ -75,28 +75,40 @@ if grep -q 'YOUR_KV_NAMESPACE_ID\|YOUR_KV_PREVIEW_ID' mcp/wrangler.toml; then
   echo "   Create your KV namespace first — see docs/setup.md section 4."
   exit 1
 fi
-echo "▶  4/7  Deploying MCP Worker..."
+echo "▶  4/8  Deploying MCP Worker..."
 wrangler deploy -c mcp/wrangler.toml
 echo "   ✓ MCP Worker deployed."
 echo ""
 
 # ── Step 5: Deploy Telegram Worker ───────────────────────────────────────────
-echo "▶  5/7  Deploying Telegram Worker..."
+echo "▶  5/8  Deploying Telegram Worker..."
 wrangler deploy
 echo "   ✓ Telegram Worker deployed."
 echo ""
 
-# ── Step 6: Deploy Gardener Worker ───────────────────────────────────────────
-echo "▶  6/7  Deploying Gardener Worker..."
+# ── Step 6: Register Telegram bot commands ───────────────────────────────────
+echo "▶  6/8  Registering bot commands..."
+if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]]; then
+  curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
+    -H "Content-Type: application/json" \
+    -d '{"commands": [{"command": "start", "description": "Start the bot"}, {"command": "undo", "description": "Undo the most recent capture"}]}' \
+    | grep -q '"ok":true' && echo "   ✓ Bot commands registered." || echo "   ⚠  Bot command registration failed (non-critical)."
+else
+  echo "   ⚠  TELEGRAM_BOT_TOKEN not set — skipping bot command registration."
+fi
+echo ""
+
+# ── Step 7: Deploy Gardener Worker ───────────────────────────────────────────
+echo "▶  7/8  Deploying Gardener Worker..."
 wrangler deploy -c gardener/wrangler.toml
 echo "   ✓ Gardener Worker deployed."
 echo ""
 
-# ── Step 7: Smoke tests ───────────────────────────────────────────────────────
+# ── Step 8: Smoke tests ───────────────────────────────────────────────────────
 if [ "$SKIP_SMOKE" = true ]; then
-  echo "▶  7/7  Smoke tests skipped (--skip-smoke)."
+  echo "▶  8/8  Smoke tests skipped (--skip-smoke)."
 else
-  echo "▶  7/7  Running smoke tests against live Worker..."
+  echo "▶  8/8  Running smoke tests against live Worker..."
   npx vitest run tests/smoke.test.ts
 fi
 
