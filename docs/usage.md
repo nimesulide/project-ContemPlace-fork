@@ -1,0 +1,140 @@
+# Using ContemPlace
+
+*You have it running. Now what? This is what a week looks like — what you send, what comes back, how you fix mistakes, and what happens while you sleep.*
+
+---
+
+## Capture: what goes in
+
+You send raw text. The system does the rest.
+
+Open your Telegram chat with the bot and type whatever is on your mind. A thought after a meeting. A quote from something you read. A question you can't answer yet. A half-formed observation from a walk. It doesn't need to be polished. It doesn't need to be complete.
+
+```
+I think the reason pair programming works isn't the code review —
+it's that explaining forces you to confront what you don't understand yet
+```
+
+A few seconds later, the bot replies with what the capture agent made of it:
+
+**Explaining forces confrontation with gaps in understanding**
+
+Pair programming works not because of code review but because explaining forces you to confront what you don't understand yet.
+
+──────────────────────
+
+*pair-programming, learning, explanation*
+
+The title is a claim extracted from your words. The body preserves what you said. The tags are inferred. Your exact input is saved alongside all of this — the structured version is for retrieval, but your words are the source of truth.
+
+<!-- TODO: screenshot of a real Telegram capture reply -->
+
+### Voice dictation
+
+Voice input works the same way. Speak into Telegram, and the bot gets the transcribed text. Dictation errors are common — the capture agent corrects them silently and reports what it fixed:
+
+*corrections: cattle stitch → kettle stitch*
+
+You see the fix in the reply. The corrected version goes into the structured note. Your original words (errors and all) stay preserved in `raw_input`.
+
+### What makes a good fragment
+
+Anything. A focused thought produces the cleanest result — one claim, a sentence or three. But the system handles messy input too. A brain dump with three ideas. A stream-of-consciousness paragraph. A single word that means something to you. The capture pipeline structures whatever you send. Focused fragments produce better immediate linking; loose fragments accumulate and connect later through the gardener.
+
+You don't need to think about whether something is "worth capturing." That's the system's job to sort out. Yours is to send what's on your mind.
+
+### Links
+
+If your fragment connects to something already in the database, the capture agent links them. You'll see it in the reply:
+
+*related: Explaining forces confrontation with gaps in understanding*
+
+The agent found a related note and created a link. You didn't ask for it — the system embedded your input, searched for similar notes, and let the LLM decide if a connection exists. Two link types: `related` for any meaningful connection, `contradicts` for tension or disagreement with a prior note.
+
+---
+
+## Retrieval: what comes out
+
+The primary access pattern is agent-driven. You open a conversation with any MCP-capable agent — Claude.ai, Claude Code, a custom script — and it can query your knowledge base directly. No pasting context. No re-explaining.
+
+### "What have I been thinking about..."
+
+The most natural query. You ask an agent about a topic, and it calls `search_notes` behind the scenes. The agent gets back ranked results with body text included — enough to weave into a response without a follow-up call.
+
+You might ask: "What have I captured about learning?" The agent pulls a cluster of fragments — the pair programming note, a note about spaced repetition, a quote about beginner's mind — and synthesizes a response from your own accumulated thinking.
+
+<!-- TODO: screenshot of a Claude.ai session pulling fragments via MCP -->
+
+### "Show me what's connected to this"
+
+When a note is interesting, you can ask the agent to explore its neighborhood. The agent calls `get_related` and sees all linked notes — capture-time links (things the LLM connected when you captured) and gardener links (similarity connections discovered overnight).
+
+This is where the graph becomes useful. A note about pair programming links to a note about rubber duck debugging, which links to a note about writing as thinking. You didn't organize any of this. The connections accumulated.
+
+### "What did I capture recently?"
+
+A quick check-in. The agent calls `list_recent` and shows your last few fragments. Useful for reviewing what's been on your mind, catching something that needs correcting, or just re-reading what you said yesterday.
+
+### The raw input distinction
+
+When an agent retrieves a note, it sees two versions of your words: `body` (the capture agent's structured interpretation) and `raw_input` (your exact words). The description on `get_note` tells agents to prefer `raw_input` when quoting you. This matters — the structured body is for retrieval and scanning, but your actual words are the source of truth.
+
+---
+
+## Curation: the editorial loop
+
+Capture is fast and low-friction. Sometimes too fast — you send something and immediately see the result is wrong. The system gives you two tools for this, matched to two different situations.
+
+### Telegram: /undo
+
+You just captured something. The reply comes back and the title is garbled, or you realize you said the wrong thing. Type `/undo`.
+
+The bot deletes the note and confirms: "Undone: **Garbled title here**"
+
+That's it. The note is permanently gone — no ghost rows, no archived junk. `/undo` works within the grace window (default 11 minutes) and only targets notes you captured via Telegram. It's a true undo: take back what you just did, right here, right now.
+
+If the grace window has passed, `/undo` refuses: "The grace period has passed. To archive a note, use an MCP session." At that point you've left the capture session — context has shifted, and the safety of a full MCP session is appropriate.
+
+<!-- TODO: screenshot of /undo flow — capture, bad result, /undo, confirmation -->
+
+### MCP: remove_note
+
+For deliberate curation — not correcting a mistake, but deciding a note doesn't belong anymore. You're reviewing your knowledge base with an agent, you encounter something stale or wrong, and you ask the agent to remove it.
+
+What happens depends on the note's age. Recent notes (within the grace window) are permanently deleted. Older notes are soft-archived — hidden from all tools but recoverable via direct database access. This protects your corpus: an overzealous agent can only soft-delete established notes, never destroy them irreversibly.
+
+The typical flow: you ask the agent "show me my recent notes about X," scan the results, and say "that second one is outdated, remove it." The agent calls `remove_note` with the UUID, confirms the action, and the note disappears from the active graph.
+
+### The recapture loop
+
+The common editorial cycle: capture → review → remove → recapture.
+
+You voice-dictate a thought on your phone. The Telegram reply shows the capture agent misunderstood — maybe the voice transcription was too garbled, or the idea came out muddled. You type `/undo`. Then you retype or re-dictate the thought more clearly. The second capture replaces the first. Clean, fast, no accumulated junk.
+
+---
+
+## The gardener: what happens overnight
+
+You capture fragments during the day. At 2am UTC, the gardener wakes up.
+
+It compares every note against every other note by embedding similarity. When two fragments are close enough in meaning — even if they share no tags and were never linked by the capture agent — the gardener creates an `is-similar-to` link between them with a confidence score.
+
+You don't see this happen. You don't interact with the gardener. The next time you or an agent asks about a topic, the graph is richer than what you explicitly connected. Notes that the capture agent couldn't link (because they didn't exist yet when the earlier note was captured) are now discoverable through the gardener's similarity web.
+
+This is the difference between a note store and a knowledge graph. The gardener turns your accumulation into something you can navigate.
+
+---
+
+## A day, start to finish
+
+Morning. You have a thought over coffee about how deadlines help creativity. You voice-dictate it into Telegram. The bot titles it, tags it, links it to a note from last week about constraints in design.
+
+Afternoon. You're in a Claude Code session working on a project. You ask the agent "what have I captured about creative constraints?" It pulls three fragments — the coffee thought, the design constraints note, and a quote from a book you read last month. The agent weaves them together without you pasting anything.
+
+You notice one of the fragments is from an early experiment and doesn't reflect what you think anymore. You ask the agent to remove it. It's soft-archived — gone from the active graph, recoverable if you change your mind.
+
+Evening. You capture two more thoughts from a conversation. One comes out wrong — you `/undo` it immediately and retype.
+
+2am. The gardener runs. Your morning thought about deadlines connects to a fragment about procrastination you captured three weeks ago. Tomorrow, when you think about either topic, the other is one hop away.
+
+You never organized anything. The structure emerged.

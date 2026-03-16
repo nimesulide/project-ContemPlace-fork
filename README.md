@@ -106,7 +106,8 @@ All infrastructure runs on free tiers (Cloudflare Workers, Supabase). The only c
 
 | Document | What it's for |
 |---|---|
-| **[Philosophy](docs/philosophy.md)** | Ten design principles and why each exists — the constraints the system is built against |
+| **[Usage guide](docs/usage.md)** | What a week looks like — capturing, retrieving, curating, and what happens overnight |
+| **[Philosophy](docs/philosophy.md)** | Design principles and why each exists — the constraints the system is built against |
 | **[Setup guide](docs/setup.md)** | Everything to go from zero to a running instance — prerequisites, secrets, database, Workers |
 | **[Architecture](docs/architecture.md)** | How the system works internally — Workers, data flow, embedding strategy, error handling |
 | **[Schema](docs/schema.md)** | The database contract — tables, RPC functions, indexes, columns |

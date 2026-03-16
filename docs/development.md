@@ -163,6 +163,7 @@ to load specific vars for subcommands.
 
 | Document | Contents |
 |---|---|
+| [Usage guide](usage.md) | What daily use looks like — capture, retrieval, curation, gardener |
 | [Architecture](architecture.md) | Async capture flow, two-pass embedding, prompt structure, error handling |
 | [Capture agent](capture-agent.md) | Linking logic, voice correction, fragment capture behavior |
 | [Schema](schema.md) | All tables, RPC functions, indexes, RLS |

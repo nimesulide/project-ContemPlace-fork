@@ -459,6 +459,7 @@ Each layer owns a specific type of information. **Never duplicate across layers*
 | **`docs/roadmap.md`** | Narrative of what each phase delivered and what's next. | When a feature ships or a phase closes |
 | **`docs/schema.md`** | All tables, RPC functions, indexes, columns. | When schema or RPC functions change |
 | **`docs/architecture.md`** | Workers, data flow, embedding strategy, error handling. | When architecture changes |
+| **`docs/usage.md`** | The experience layer: what daily use looks like — capture, retrieval, curation, gardener. The "so what" document for someone who just deployed. | When user-facing behavior changes |
 | **`docs/philosophy.md`** | Product design principles: fragment-first capture, trust contract, synthesis layer, emergent structure. The "why" behind architectural choices. | When product principles change |
 | **`docs/capture-agent.md`** | Capture pipeline behavior, linking logic, voice correction. | When capture behavior changes |
 | **`CLAUDE.md`** | Stable AI context: architecture, hard constraints, key files, conventions. No current state, no issue indexes, no phase status. | When architecture or conventions change |
