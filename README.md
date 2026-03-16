@@ -1,24 +1,22 @@
 <h1 align="center">ContemPlace</h1>
 
-<p align="center">Your memory, your database, any agent.</p>
+<p align="center"><strong>Your memory, your database, any agent.</strong></p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/cloudflare-workers-orange" alt="Cloudflare Workers" />
-  <img src="https://img.shields.io/badge/database-supabase-green" alt="Supabase" />
-</p>
+A commonplace book that auto-gardens into an MCP-connected knowledge base. Capture idea fragments from any interface — the system structures, embeds, and links them into a searchable graph in Postgres you own.
+
+Here's a fresh Claude.ai session — no context pasted, no re-explaining. The agent queries your knowledge base via MCP:
 
 <div align="center">
-<img src="docs/assets/claude-web-mcp-demo.png" alt="Claude.ai web retrieving instrument-building notes from ContemPlace via MCP — a fresh session with zero prior context" width="500" />
+<img src="docs/assets/claude-web-mcp-demo.png" alt="Claude.ai retrieving linked notes from ContemPlace via MCP — a fresh session with zero prior context" width="500" />
 <br />
-<em>A fresh Claude.ai session with no prior context. One MCP query, and the agent pulls a cluster of linked notes.</em>
+<em>One prompt, and the agent pulls a cluster of linked notes it's never seen before.</em>
 </div>
 
 ---
 
 Every AI conversation starts from zero. You re-explain your project, paste context from your notes, rebuild understanding that vanishes when the session ends or you switch tools. Your thinking is scattered across platforms that don't talk to each other.
 
-ContemPlace is a personal knowledge base that any AI agent can read and write. Send raw thoughts — from Telegram, Claude, or anything that speaks [MCP](https://modelcontextprotocol.io/) — and the system structures, embeds, and links them into a searchable graph. A gardening pipeline finds connections in the background. Your accumulated context travels with you across tools, permanently.
+ContemPlace fixes this. Any MCP-capable agent — Claude, ChatGPT, Cursor, custom scripts — can read and write your knowledge base directly. For capture on the go, there's a Telegram bot, and the architecture makes adding more channels (Slack, WhatsApp, anything HTTPS) straightforward. A gardening pipeline runs nightly to surface connections you didn't make explicitly.
 
 Postgres you can always query and export. The whole stack runs on free tiers. LLM costs average $2–3/month.
 
@@ -49,19 +47,6 @@ The MCP server is the primary interface — five tools, usable by any MCP-capabl
 
 **Auth:** OAuth 2.1 (Authorization Code + PKCE) for browser clients like Claude.ai, or a static Bearer token for CLI/SDK callers like Claude Code. Both paths are permanent.
 
-## What's included
-
-The database + MCP server is the core. Everything else is optional — add what you need.
-
-| Component | What it does | Status |
-|---|---|---|
-| **MCP server** | 5 tools: search, capture, browse, link traversal | ✅ Live |
-| **Telegram bot** | Message it, get a structured note back. Mobile capture. | ✅ Live |
-| **Gardening pipeline** | Nightly similarity linking between fragments | ✅ Live |
-| **OAuth 2.1** | Claude.ai web connector. Auth Code + PKCE, static key fallback. | ✅ Live |
-| **Dashboard** | Browser-based graph exploration | Planned — [#101](https://github.com/freegyes/project-ContemPlace/issues/101) |
-| **Import tools** | Re-fragment from Obsidian vaults, ChatGPT memory exports | Planned — [#133](https://github.com/freegyes/project-ContemPlace/issues/133), [#13](https://github.com/freegyes/project-ContemPlace/issues/13), [#14](https://github.com/freegyes/project-ContemPlace/issues/14) |
-
 ## Stack
 
 | Layer | Technology |
@@ -74,7 +59,7 @@ The database + MCP server is the core. Everything else is optional — add what 
 | Capture interface | Telegram bot (webhook-based) |
 | Agent interface | MCP server (JSON-RPC 2.0 over HTTP) |
 
-All models are configurable via environment variables. All AI calls route through OpenRouter — swap models without code changes.
+Every model is an environment variable. All AI calls route through OpenRouter — if you prefer a different model, change one config value. No code changes, no vendor lock-in at the model layer either.
 
 ## Trust and control
 
@@ -88,13 +73,9 @@ The [full design philosophy](docs/philosophy.md) has ten principles with the rea
 
 ## Get started
 
-| Goal | What to deploy | Time |
-|---|---|---|
-| **MCP access** — search and capture via any agent | MCP Worker + Supabase | ~10 min |
-| **+ Telegram** — low-friction mobile capture | Add the Telegram Worker | +5 min |
-| **+ Gardening** — automatic similarity linking | Add the Gardener Worker | +2 min |
+The full stack — MCP server, database, gardening pipeline — deploys in about 10 minutes, all on free tiers. Add a Telegram bot for mobile capture if you want it.
 
-Everything runs on free tiers. **[Setup guide →](docs/setup.md)**
+**[Setup guide →](docs/setup.md)**
 
 ## FAQ
 
@@ -120,4 +101,17 @@ All infrastructure runs on free tiers (Cloudflare Workers, Supabase). The only c
 
 ---
 
-**[Philosophy](docs/philosophy.md)** · **[Setup guide](docs/setup.md)** · **[Architecture](docs/architecture.md)** · **[Schema](docs/schema.md)** · **[Capture agent](docs/capture-agent.md)** · **[Development](docs/development.md)** · **[Decisions](docs/decisions.md)** · **[Roadmap](docs/roadmap.md)**
+## Documentation
+
+| Document | What it's for |
+|---|---|
+| **[Philosophy](docs/philosophy.md)** | Ten design principles and why each exists — the constraints the system is built against |
+| **[Setup guide](docs/setup.md)** | Everything to go from zero to a running instance — prerequisites, secrets, database, Workers |
+| **[Architecture](docs/architecture.md)** | How the system works internally — Workers, data flow, embedding strategy, error handling |
+| **[Schema](docs/schema.md)** | The database contract — tables, RPC functions, indexes, columns |
+| **[Capture agent](docs/capture-agent.md)** | Capture pipeline behavior — field descriptions, linking logic, voice correction, traceability rules |
+| **[Development](docs/development.md)** | Test commands, project layout, file-by-file breakdown — contributor reference |
+| **[Decisions](docs/decisions.md)** | Architecture Decision Records — timestamped, immutable, one per significant choice |
+| **[Roadmap](docs/roadmap.md)** | What each phase delivered and what's next |
+
+*This README is the front door — it answers "what is this?" and "should I try it?" in under a minute. Everything deeper lives in the docs above.*

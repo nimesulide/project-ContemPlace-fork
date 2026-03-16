@@ -1,6 +1,6 @@
 # Development
 
-Test commands, project layout, and contributor reference for ContemPlace.
+*Test commands, project layout, file-by-file breakdown — contributor and developer reference. Start here if you want to run tests or understand the codebase structure.*
 
 ## Tests
 

@@ -1,6 +1,8 @@
 # Design decisions
 
-This document captures the key decisions behind ContemPlace's architecture, the tradeoffs involved, and lessons learned from real usage. Many of these were refined through specialist reviews during the project bootstrap (see `reviews/` directory).
+*Architecture Decision Records — timestamped and immutable. When a decision changes, a new entry is added; old entries are never edited. This is the historical record of why things are the way they are.*
+
+Many decisions were refined through specialist reviews during the project bootstrap (see `reviews/` directory).
 
 ## Cloud-only, no Docker
 

@@ -1,5 +1,7 @@
 # Schema
 
+*The database contract — all tables, columns, RPC functions, and indexes. Read this if you're querying the database directly or writing a migration.*
+
 The v4 schema has 5 tables, 2 RPC functions, and indexes optimized for both vector similarity search and traditional filtering. All tables have RLS enabled with `deny all` policies — access is exclusively via the service role key.
 
 ## Tables

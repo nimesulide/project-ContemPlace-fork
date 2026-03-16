@@ -1,5 +1,7 @@
 # Roadmap
 
+*What each phase delivered and what's next. The narrative arc of the project — where it's been and where it's headed.*
+
 ## Phase 1 — Capture pipeline (complete)
 
 The foundation: a Telegram bot backed by a Cloudflare Worker that captures messages into Supabase with pgvector embeddings and semantic linking.

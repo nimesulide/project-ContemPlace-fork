@@ -1,6 +1,6 @@
 # Product philosophy
 
-What ContemPlace believes, why, and where each belief was decided.
+*The design principles that constrain every decision in ContemPlace. Not aspirations — the actual rules the system is built against. Each principle includes its source and reasoning.*
 
 ---
 

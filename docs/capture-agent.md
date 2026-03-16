@@ -1,5 +1,7 @@
 # Capture agent
 
+*What the capture pipeline does to your input and why — field descriptions, linking logic, voice correction, traceability rules. Read this to understand or tune capture behavior.*
+
 The capture agent is an LLM that turns raw user input into a structured fragment. It runs once per message, produces 6 fields in a single pass, and never asks the user for clarification.
 
 > **Note (2026-03-13):** `type`, `intent`, and `modality` were removed from the capture pipeline (#110, decision in #104). The classification complexity didn't justify the marginal retrieval value. The fields below — title, body, tags, links, corrections, source_ref — are the capture output. Existing notes may still have type/intent/modality values from before the change.
