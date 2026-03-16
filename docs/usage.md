@@ -138,3 +138,13 @@ Evening. You capture two more thoughts from a conversation. One comes out wrong 
 2am. The gardener runs. Your morning thought about deadlines connects to a fragment about procrastination you captured three weeks ago. Tomorrow, when you think about either topic, the other is one hop away.
 
 You never organized anything. The structure emerged.
+
+---
+
+## Importing from other systems
+
+If you have existing knowledge in an Obsidian vault — notes, reflections, synthesized documents — you can re-capture the ideas into ContemPlace using the `/extract-fragments` custom command in Claude Code.
+
+You describe a topic: "I had thoughts about making a lap steel guitar." The agent searches your Obsidian vault semantically, finds relevant notes, decomposes them into discrete idea fragments, and re-voices each one in your natural capture style (using your existing ContemPlace fragments as a style reference). You review the proposed fragments interactively — approve, reject, rework, split, combine — and the approved ones get captured through the standard pipeline.
+
+This is not a bulk import. It's a small-batch session (typically 1-15 fragments) where you exercise close editorial control. The command marks processed Obsidian files with a frontmatter tag to prevent re-processing, and ends each session with a reflection on your corrections so it improves over time.

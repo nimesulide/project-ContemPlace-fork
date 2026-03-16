@@ -103,6 +103,12 @@ tests/
   gardener-alert.test.ts      # Unit tests for sendAlert() — Telegram alerting
   gardener-trigger.test.ts    # Unit tests for /trigger endpoint auth + routing
   gardener-integration.test.ts # Integration test: capture → gardener /trigger → get_related (live stack)
+.claude/
+  commands/
+    extract-fragments.md  # Custom command: topic-driven Obsidian re-capture sessions — search vault, decompose, re-voice, interactive capture
+    harvest-ideas.md      # Custom command: search corpus for actionable product ideas, cross-reference with issues
+    audit-captures.md     # Custom command: capture quality audit — body fidelity, title style, linking, retrieval
+    work-on-issue.md      # Custom command: full issue workflow — gather → review → plan → implement → verify → ship
 docs/                # Detailed documentation (architecture, capture agent, schema, decisions, roadmap)
 wrangler.toml        # Telegram Worker Cloudflare config
 package.json

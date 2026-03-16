@@ -167,6 +167,19 @@ Delivered:
 - **Bot command registration** — both `/start` and `/undo` registered via Telegram `setMyCommands` API
 - **9 unit tests** covering grace window, boundary, custom config, error propagation
 
+## Extract-fragments command (complete) — issue #133
+
+A Claude Code custom command (`/extract-fragments`) for re-capturing ideas from an Obsidian vault into ContemPlace. Topic-driven, not file-based — the user describes what they're looking for, the agent searches the vault semantically, decomposes the found material into idea fragments, re-voices them in the user's natural capture style, and presents them for interactive review before capturing.
+
+Delivered:
+- **Topic-driven search** — input is a natural topic description, agent searches the Obsidian vault via MCP semantic search
+- **Style-aware re-voicing** — queries ContemPlace itself for the user's tone, vocabulary, and register before rewriting fragments
+- **Interactive review** — approve, reject, rework, split, combine individual fragments before capture
+- **Overlap detection** — checks ContemPlace for existing fragments on the same topic to avoid duplicates
+- **Obsidian syntax normalization** — strips wikilinks, callouts, dataview, comments to plain text
+- **Processed file marking** — adds `contemplace: extracted` to Obsidian frontmatter to prevent re-processing
+- **Self-improving** — end-of-session reflection identifies what corrections the user made and proposes command updates
+
 ## Phase 3 — Associative trails and beyond (deferred)
 
 **Associative trails** — Curated or auto-generated sequences of notes that tell a story or trace a line of thinking. The `trails` and `trail_steps` tables were designed but not created in v2.
