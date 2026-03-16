@@ -296,7 +296,7 @@ export interface NoteForArchive {
   archived_at: string | null;
 }
 
-// Fetch a note without archived_at filter — needed by archive_note to distinguish
+// Fetch a note without archived_at filter — needed by remove_note to distinguish
 // "not found" from "already archived".
 export async function fetchNoteForArchive(
   db: SupabaseClient,
