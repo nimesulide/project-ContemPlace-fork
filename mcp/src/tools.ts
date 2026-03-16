@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type OpenAI from 'openai';
 import type { Config } from './config';
 import { embedText } from './embed';
-import { fetchNote, fetchNoteLinks, listRecentNotes, searchNotes } from './db';
+import { fetchNote, fetchNoteLinks, listRecentNotes, searchNotes, fetchNoteForArchive, archiveNote, hardDeleteNote } from './db';
 import { runCapturePipeline } from './pipeline';
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -80,6 +80,17 @@ export const TOOL_DEFINITIONS = [
         source: { type: 'string', description: 'Identifies where this note came from. Default "mcp" is fine. Use a specific label when known — e.g., "claude-code", "obsidian-import". Alphanumeric/hyphens/underscores, max 100 chars.' },
       },
       required: ['raw_input'],
+    },
+  },
+  {
+    name: 'archive_note',
+    description: 'Remove a note from the knowledge graph. Notes created within the grace window (default 10 minutes) are permanently hard-deleted — you are still in the capture session, correcting in real time. Older notes are soft-archived (recoverable via direct DB access). Returns { deleted: true } for hard delete or { archived: true, id: "..." } for soft archive. Always confirm with the user before calling.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'UUID of the note to archive/delete' },
+      },
+      required: ['id'],
     },
   },
 ];
@@ -203,5 +214,37 @@ export async function handleCaptureNote(
   } catch (err) {
     console.error(JSON.stringify({ event: 'capture_note_error', error: String(err) }));
     return toolError('Capture failed. Try again.');
+  }
+}
+
+export async function handleArchiveNote(
+  args: Record<string, unknown>,
+  db: SupabaseClient,
+  config: Config,
+): Promise<object> {
+  const id = args['id'];
+  if (typeof id !== 'string') return toolError('id is required');
+  if (!UUID_RE.test(id)) return toolError(`Invalid UUID format: "${id}"`);
+
+  try {
+    const note = await fetchNoteForArchive(db, id);
+    if (!note) return toolError(`Note not found: ${id}`);
+    if (note.archived_at !== null) return toolSuccess({ archived: true, id });
+
+    const ageMs = Date.now() - new Date(note.created_at).getTime();
+    const windowMs = config.hardDeleteWindowMinutes * 60 * 1000;
+
+    if (ageMs < windowMs) {
+      await hardDeleteNote(db, id);
+      console.log(JSON.stringify({ event: 'note_hard_deleted', id }));
+      return toolSuccess({ deleted: true });
+    } else {
+      await archiveNote(db, id);
+      console.log(JSON.stringify({ event: 'note_archived', id }));
+      return toolSuccess({ archived: true, id });
+    }
+  } catch (err) {
+    console.error(JSON.stringify({ event: 'archive_note_error', error: String(err), id }));
+    return toolError('Archive operation failed. Try again.');
   }
 }

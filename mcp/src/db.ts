@@ -154,6 +154,7 @@ export async function fetchNote(
     .from('notes')
     .select('id, title, body, raw_input, tags, entities, corrections, source, source_ref, created_at')
     .eq('id', id)
+    .is('archived_at', null)
     .single();
 
   if (error || !data) return null;
@@ -180,7 +181,8 @@ export async function fetchNoteLinks(
   const { data: noteRows } = await db
     .from('notes')
     .select('id, title')
-    .in('id', linkedIds);
+    .in('id', linkedIds)
+    .is('archived_at', null);
 
   const titleMap = new Map<string, string>();
   if (noteRows) {
@@ -189,26 +191,30 @@ export async function fetchNoteLinks(
     }
   }
 
-  return linkRows.map((l: {
-    from_id: string;
-    to_id: string;
-    link_type: string;
-    context: string | null;
-    confidence: number | null;
-    created_by: string;
-  }) => {
-    const isOutbound = l.from_id === id;
-    const otherId = isOutbound ? l.to_id : l.from_id;
-    return {
-      to_id: otherId,
-      to_title: titleMap.get(otherId) ?? '',
-      link_type: l.link_type,
-      context: l.context,
-      confidence: l.confidence,
-      created_by: l.created_by,
-      direction: isOutbound ? 'outbound' : 'inbound',
-    } as LinkWithTitle;
-  });
+  return linkRows
+    .map((l: {
+      from_id: string;
+      to_id: string;
+      link_type: string;
+      context: string | null;
+      confidence: number | null;
+      created_by: string;
+    }) => {
+      const isOutbound = l.from_id === id;
+      const otherId = isOutbound ? l.to_id : l.from_id;
+      // Skip links to archived notes (not in titleMap after filtered query)
+      if (!titleMap.has(otherId)) return null;
+      return {
+        to_id: otherId,
+        to_title: titleMap.get(otherId) ?? '',
+        link_type: l.link_type,
+        context: l.context,
+        confidence: l.confidence,
+        created_by: l.created_by,
+        direction: isOutbound ? 'outbound' : 'inbound',
+      } as LinkWithTitle;
+    })
+    .filter((l): l is LinkWithTitle => l !== null);
 }
 
 // List recent notes, newest first.
@@ -219,6 +225,7 @@ export async function listRecentNotes(
   const { data, error } = await db
     .from('notes')
     .select('id, title, body, tags, source, source_ref, created_at')
+    .is('archived_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -253,4 +260,58 @@ export async function searchNotes(
   }
 
   return (data as MatchedNote[]) ?? [];
+}
+
+// ── Archive functions ──────────────────────────────────────────────────────
+
+export interface NoteForArchive {
+  id: string;
+  created_at: string;
+  archived_at: string | null;
+}
+
+// Fetch a note without archived_at filter — needed by archive_note to distinguish
+// "not found" from "already archived".
+export async function fetchNoteForArchive(
+  db: SupabaseClient,
+  id: string,
+): Promise<NoteForArchive | null> {
+  const { data, error } = await db
+    .from('notes')
+    .select('id, created_at, archived_at')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) return null;
+  return data as NoteForArchive;
+}
+
+// Soft delete — set archived_at to now().
+export async function archiveNote(
+  db: SupabaseClient,
+  id: string,
+): Promise<void> {
+  const { error } = await db
+    .from('notes')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Archive failed: ${error.message}`);
+  }
+}
+
+// Hard delete — CASCADE cleans links + enrichment_log.
+export async function hardDeleteNote(
+  db: SupabaseClient,
+  id: string,
+): Promise<void> {
+  const { error } = await db
+    .from('notes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Delete failed: ${error.message}`);
+  }
 }

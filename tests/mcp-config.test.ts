@@ -123,4 +123,27 @@ describe('loadConfig', () => {
     const config = loadConfig(env({ SUPABASE_SERVICE_ROLE_KEY: 'plain-key' }));
     expect(config.supabaseServiceRoleKey).toBe('plain-key');
   });
+
+  it('uses 10 as default hardDeleteWindowMinutes when HARD_DELETE_WINDOW_MINUTES is absent', () => {
+    const config = loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: undefined }));
+    expect(config.hardDeleteWindowMinutes).toBe(10);
+  });
+
+  it('parses a valid HARD_DELETE_WINDOW_MINUTES integer', () => {
+    const config = loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: '30' }));
+    expect(config.hardDeleteWindowMinutes).toBe(30);
+  });
+
+  it('accepts 0 as a valid HARD_DELETE_WINDOW_MINUTES (always hard-delete)', () => {
+    const config = loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: '0' }));
+    expect(config.hardDeleteWindowMinutes).toBe(0);
+  });
+
+  it('throws when HARD_DELETE_WINDOW_MINUTES is negative', () => {
+    expect(() => loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: '-1' }))).toThrow('HARD_DELETE_WINDOW_MINUTES');
+  });
+
+  it('throws when HARD_DELETE_WINDOW_MINUTES is not a number', () => {
+    expect(() => loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: 'bad' }))).toThrow('HARD_DELETE_WINDOW_MINUTES');
+  });
 });

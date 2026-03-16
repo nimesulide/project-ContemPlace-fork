@@ -12,6 +12,7 @@ export interface Env {
   EMBED_MODEL: string;
   MATCH_THRESHOLD: string;
   MCP_SEARCH_THRESHOLD: string;
+  HARD_DELETE_WINDOW_MINUTES: string;
   OAUTH_KV: KVNamespace;
   /** Injected at runtime by OAuthProvider before calling handlers */
   OAUTH_PROVIDER?: OAuthHelpers;
