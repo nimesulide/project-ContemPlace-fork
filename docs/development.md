@@ -126,7 +126,7 @@ tests/
   mcp-auth.test.ts        MCP auth
   mcp-config.test.ts      MCP config loading
   mcp-embed.test.ts       Embedding helpers
-  mcp-tools.test.ts       All 5 tool handlers
+  mcp-tools.test.ts       All 6 tool handlers
   mcp-index.test.ts       OAuthProvider + resolveExternalToken
   mcp-oauth.test.ts       Consent page + AuthHandler
   mcp-dispatch.test.ts    JSON-RPC dispatch

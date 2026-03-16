@@ -21,7 +21,7 @@ OpenRouter sits between the Workers and all AI models. This adds a hop but means
 | Worker | Name | Purpose | Trigger |
 |---|---|---|---|
 | **Telegram capture** | `contemplace` | Receives Telegram webhooks, delegates capture to MCP Worker via Service Binding, formats HTML reply | Telegram webhook POST |
-| **MCP server** | `mcp-contemplace` | Exposes 5 tools to AI agents via JSON-RPC 2.0 over HTTP. Hosts the `CaptureService` entrypoint for Service Binding RPC. | HTTP POST /mcp, Service Binding RPC |
+| **MCP server** | `mcp-contemplace` | Exposes 6 tools to AI agents via JSON-RPC 2.0 over HTTP. Hosts the `CaptureService` entrypoint for Service Binding RPC. | HTTP POST /mcp, Service Binding RPC |
 | **Gardener** | `contemplace-gardener` | Nightly enrichment: similarity linking | Cron (02:00 UTC) or POST /trigger |
 
 Each Worker is independently deployed with its own `wrangler.toml` and secrets. They share the same Supabase database and use the same `openai` SDK pattern for OpenRouter calls.
@@ -99,7 +99,7 @@ The same `runCapturePipeline()` function is called by both the Service Binding R
 
 ## MCP server
 
-The MCP Worker implements JSON-RPC 2.0 over HTTP with dual authentication: OAuth 2.1 (Authorization Code + PKCE) for browser-based clients and static Bearer token for API/SDK callers. It exposes 5 tools:
+The MCP Worker implements JSON-RPC 2.0 over HTTP with dual authentication: OAuth 2.1 (Authorization Code + PKCE) for browser-based clients and static Bearer token for API/SDK callers. It exposes 6 tools:
 
 | Tool | Operation |
 |---|---|
@@ -108,6 +108,7 @@ The MCP Worker implements JSON-RPC 2.0 over HTTP with dual authentication: OAuth
 | `list_recent` | Recent notes, newest first |
 | `get_related` | All linked notes in both directions |
 | `capture_note` | Full capture pipeline (same logic as Telegram, synchronous) |
+| `archive_note` | Remove a note — hard delete if recent (< grace window), soft archive if older |
 
 Tool descriptions in `TOOL_DEFINITIONS` (mcp/src/tools.ts) include behavioral guidance for connecting agents — what kind of input to pass, how to interpret results, when to use each tool. The `capture_note` description explicitly instructs agents to pass user's raw words without cleaning up or pre-structuring. These descriptions are the only guidance a connecting agent receives about how to use ContemPlace.
 

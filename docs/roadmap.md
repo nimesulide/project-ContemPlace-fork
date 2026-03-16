@@ -144,6 +144,18 @@ Delivered:
 - **Tests:** Deleted 4 test files. 210 tests pass across 12 files.
 - **Net:** +110 / -2,759 lines
 
+## archive_note — Minimum viable curation (complete) — issue #87, PR #140
+
+The first editorial tool: `archive_note` gives agents the ability to remove notes from the knowledge graph, completing the capture-review-recapture loop that was impossible without direct DB access.
+
+Delivered:
+- **`archive_note` MCP tool** — grace-window hybrid: notes younger than `HARD_DELETE_WINDOW_MINUTES` (default 11) are hard-deleted (CASCADE cleans links + enrichment_log), older notes are soft-archived (`archived_at = now()`, recoverable via direct DB)
+- **Archived note filtering** — `fetchNote`, `listRecentNotes`, and `fetchNoteLinks` now filter `archived_at IS NULL`. Archived notes are invisible across all MCP tools. Links to archived notes filtered out of `get_related` responses.
+- **Idempotent** — calling `archive_note` on an already-archived note returns success, not "not found"
+- **No update, no merge** — derived from first principles: `raw_input` is the only real data, everything else is pipeline-computed. Update fights the pipeline. Merge has no coherent `raw_input` semantics. Delete is the only operation that follows. Issues #88, #89, #98 closed.
+
+The design was derived linearly from the core architecture: since everything in the system is computed from `raw_input`, the only meaningful editorial operation is removal. The grace-window hybrid limits blast radius for untrusted MCP agents (soft delete = recoverable) while keeping the on-the-go correction loop clean (hard delete = no ghost rows for immediate mistakes).
+
 ## Phase 3 — Associative trails and beyond (deferred)
 
 **Associative trails** — Curated or auto-generated sequences of notes that tell a story or trace a line of thinking. The `trails` and `trail_steps` tables were designed but not created in v2.
