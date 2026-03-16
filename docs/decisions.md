@@ -876,3 +876,47 @@ Lowering the threshold doesn't help — even at 800 chars, only 1 note qualifies
 - **Net:** +110 / -2,759 lines.
 
 **Source:** Issue #128, PR #131. Decision chain: #93 → #105/#106/#112/#117 → #122/#124/#127 → #128.
+
+## archive_note with grace-window hard delete — no update, no merge (2026-03-16)
+
+**Decision:** Implement one MCP tool — `archive_note` — with time-based dual behavior. No `update_note` tool. No `merge_notes` tool. Close #88, #89, #98. Reframe #87 as `archive_note`.
+
+**The reasoning from first principles:**
+
+Everything in ContemPlace is computed from `raw_input`. Title, body, tags, links, embeddings — all derived by the pipeline. The only "real" data is what the user originally said. This means:
+
+1. **Update makes no sense.** Editing computed fields (title, body, tags) fights the pipeline — any re-processing overwrites the edit. Editing `raw_input` and re-running the pipeline is just delete + recapture. The user doesn't want to revise fragments in place; they capture something new that supersedes, or they delete and try again.
+
+2. **Merge makes no sense.** Which `raw_input` survives? Concatenating two creates a multi-fragment input the system isn't built for. Keeping one and archiving the other is just archive + keep — no merge tool required. Duplicates resolve naturally: newer captures overwhelm old ones during synthesis/retrieval, or the user archives the one they don't want.
+
+3. **Delete is the only operation that follows.** Two real use cases: (a) on-the-go correction — capture, see bad result, remove it, recapture; (b) retrieval-time curation — encounter stale/wrong/test junk, ask the agent to remove it.
+
+**Why soft delete (archive) instead of hard delete:**
+
+The threat model isn't "I'll accidentally delete my own note." It's "I connect an MCP client I don't fully trust, and it has a tool that can destroy data irreversibly." The MCP surface is an access layer for potentially untrusted agents. A rogue or overzealous agent with hard delete access could destroy the entire corpus. With soft delete, the worst case is mass archival — fixable with one SQL UPDATE.
+
+Soft delete via `archived_at` is a **blast radius limiter**, not packrat instinct. The system trusts the user as curator, but it doesn't have to trust every agent the user connects.
+
+**Grace-window hybrid:**
+
+The tool checks the note's `created_at` against a configurable threshold (default: 10 minutes, env var `HARD_DELETE_WINDOW_MINUTES`):
+
+| Note age | Behavior | Rationale |
+|---|---|---|
+| < grace window | Hard delete (`DELETE`, CASCADE cleans links + enrichment_log) | You're still in the capture session, correcting in real time. The fragment barely existed. |
+| ≥ grace window | Soft delete (`SET archived_at = now()`) | The note has been in the graph, may have been seen, linked, or referenced. Recoverable. |
+
+This keeps the on-the-go correction loop clean (no ghost rows for immediate mistakes) while protecting established notes from irreversible damage. A rogue agent that calls `archive_note` on old notes can only soft-delete them. A rogue agent calling it on very recent notes can hard-delete them, but those are notes it likely just created — minutes of data, not the corpus.
+
+**Hard delete stays manual.** Direct DB access (`DELETE FROM notes WHERE id = '...'`) for when the user wants to truly purge. No agent gets this capability.
+
+**Unarchive is also manual.** `UPDATE notes SET archived_at = NULL WHERE id = '...'` or mass recovery: `UPDATE notes SET archived_at = NULL WHERE archived_at IS NOT NULL`. No MCP tool needed.
+
+**What already supports this in the schema:**
+- `archived_at` column exists on `notes`
+- `ON DELETE CASCADE` on `links.from_id`, `links.to_id`, `enrichment_log.note_id`
+- All RPC functions (`match_notes`, `find_similar_pairs`) already filter `WHERE archived_at IS NULL`
+
+**Return value** communicates which path was taken: `{ deleted: true }` for hard delete, `{ archived: true, id: "..." }` for soft delete — so the calling agent and user know what happened.
+
+**Source:** Issues #87, #88, #89, #98. First-principles design session 2026-03-16.
