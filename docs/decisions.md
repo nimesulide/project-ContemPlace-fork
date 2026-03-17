@@ -998,3 +998,47 @@ For hard-deleted notes, idempotency is impossible (the row is gone), so "not fou
 **What changed:** Tool name `archive_note` → `remove_note`. Handler `handleArchiveNote` → `handleRemoveNote`. Tool description rewritten to lead with the time-dependent behavior. Internal DB functions (`archiveNote`, `hardDeleteNote`, `fetchNoteForArchive`) unchanged — they accurately describe their DB-level operations.
 
 **Source:** Session reflection on naming contracts, 2026-03-16. New design principle #10 in `docs/philosophy.md`.
+
+## Cluster exploration: weighted graph fusion with flat overlapping clusters (2026-03-17)
+
+**Decision:** Cluster fragments using weighted graph fusion — a single similarity graph where edge weight combines cosine similarity (embeddings), Jaccard similarity (tags), explicit link presence, and eventually Jaccard similarity (entities). Run Louvain community detection via Graphology (TypeScript-native). Flat clusters with overlap and a resolution parameter for granularity. No hierarchy, no nesting.
+
+**Why:** A literature review (#148) surveyed community detection algorithms, multi-view clustering, tag co-occurrence methods, and hierarchy vs flat for PKM systems. The Zettelkasten tradition rejects imposed hierarchy — fragments naturally belong to multiple topics. ContemPlace's "emergent structure, not imposed structure" philosophy aligns with flat clusters + resolution parameter for zoom, not a fixed tree. Weighted graph fusion is the simplest multi-signal approach (transparent, tunable), with Similarity Network Fusion and consensus clustering available as future iterations if needed.
+
+Louvain via Graphology is the practical algorithm choice — the only production-quality TypeScript implementation with weighted edge support that works in V8 (CF Workers runtime). Custom implementation remains an option if Louvain proves insufficient. Leiden (theoretically better) has no JS port.
+
+**Key design constraints:**
+- Multi-membership from day one — hard assignment rejected as false
+- Resolution parameter exposed to consumers — agents pick the zoom level
+- LLM-assisted cluster labels at gardening time — dashboard-browseable without MCP
+- Gravity is recency-weighted, not just size — new clusters should surface
+- Entities (fourth signal) silently absent when empty, slots in when #125 ships
+- Stay on CF Workers free tier
+
+**Source:** #144 research session, 2026-03-17. Literature review completed (#148). Validated against #145 empirical findings.
+
+## Cluster computation as a gardening operation (2026-03-17)
+
+**Decision:** Cluster detection runs at gardening time (nightly cron), not on-demand in the MCP tool. Results stored in DB. The `list_clusters` MCP tool reads pre-computed clusters.
+
+**Why:** Two considerations drove this. First, the user wants clusters browseable from a dashboard without an MCP agent — that requires pre-computed results in the DB. Second, building separate on-demand computation and then rebuilding for the gardener is duplicate work. For a corpus of hundreds of notes, Graphology + Louvain is milliseconds — well within the nightly gardener's budget. If cheap enough, could eventually become a post-capture operation.
+
+**Source:** #144 design discussion, 2026-03-17.
+
+## Entities column retained for gardener use and clustering (2026-03-17)
+
+**Decision:** Keep the `entities` JSONB column on `notes`. Do not drop it (#129 closed).
+
+**Why:** The gardener-maintained entity dictionary (#125) will populate it via batch extraction from `raw_input`. Entities also serve as the fourth dimension in the clustering weighted graph — Jaccard entity co-occurrence is orthogonal to embeddings, tags, and links. The formula `w(a,b) = α·cosine + β·jaccard_tags + γ·link_exists + δ·jaccard_entities` accommodates absent entities (δ·0 = 0) without code changes. The GIN index stays for future entity-based retrieval.
+
+**Source:** #144 research session, 2026-03-17. #129 closed with this resolution.
+
+## All linking thresholds are untested and need empirical validation (2026-03-17)
+
+**Decision:** Elevate threshold assessment (#149) from a clustering dependency to a key product feature. The three thresholds (MATCH_THRESHOLD 0.60, GARDENER_SIMILARITY_THRESHOLD 0.70, MCP_SEARCH_THRESHOLD 0.35) were set during proof-of-concept for an earlier embedding format and have never been empirically validated.
+
+**Why:** The #145 tag clustering investigation showed 82% coverage with hybrid tags + links, but this math depends on link density, which depends on thresholds that were never tuned. The embedding format changed from `[Type: X] [Intent: Y] [Tags: ...] text` to `[Tags: ...] text` in v3.1, and thresholds weren't revisited. The gardener produces only 25 `is-similar-to` links at 0.70 — likely too sparse. Rather than optimize clustering on top of unvalidated signals, validate the signals first.
+
+Each linking mechanism has a distinct purpose: capture-time links are LLM-reasoned semantic judgments (how ideas relate), gardener-time links are mathematical proximity (bridging temporal gaps). If clustering needs denser links than capture quality does, a separate clustering-time similarity pass may be warranted.
+
+**Source:** #144 research session, 2026-03-17. #91 and #146 folded into #149.

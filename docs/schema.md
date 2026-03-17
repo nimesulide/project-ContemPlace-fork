@@ -22,7 +22,7 @@ The core table. Each row is a captured note with both the user's raw input and t
 | `source_ref` | text | LLM | URL if present |
 | `source` | text | system | Always set. Currently `telegram`, `mcp`, or `semantic-test`. |
 | `corrections` | text[] | LLM | Voice dictation fixes |
-| `entities` | jsonb | LLM | `[{name, type}]` — proper nouns. New notes have empty arrays (`[]`); entity extraction moved out of capture pipeline (#113). Column retained for future gardener-maintained entity extraction (#125). Candidate for removal (#129). |
+| `entities` | jsonb | LLM | `[{name, type}]` — proper nouns. New notes have empty arrays (`[]`); entity extraction moved out of capture pipeline (#113). Column retained for gardener-maintained entity extraction (#125) and as a fourth clustering signal in the weighted graph fusion formula (#144). |
 | `summary` | text | — | **Dead weight.** Unpopulated, no implementation planned. Candidate for removal (#130). |
 | `categories` | text[] | — | **Dead weight.** Unpopulated, no implementation planned. Candidate for removal (#130). |
 | `metadata` | jsonb | — | **Dead weight.** Unpopulated, no implementation planned. Candidate for removal (#130). |

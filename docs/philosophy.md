@@ -8,7 +8,7 @@
 
 You use ContemPlace as you would a commonplace book. Send whatever is on your mind — a thought, a quote, a question, an observation. No processing obligation. No pressure to be atomic or complete. The input experience is accumulation, nothing more.
 
-Under the hood, the system turns your commonplace book into a personal knowledge management system. A gardening layer adds structure: similarity links surface connections you didn't make explicitly. A synthesis layer (planned) will generate cluster summaries and make you re-encounter notes through accumulation alone — each new fragment triggering everything else down the line.
+Under the hood, the system turns your commonplace book into a personal knowledge management system. A gardening layer adds structure: similarity links surface connections you didn't make explicitly, and cluster detection groups fragments into themes you can browse. A synthesis layer may eventually generate narrative summaries from clusters, but the primary goal is undirected exploration — seeing the shape of your thinking without a specific query.
 
 The MCP surface is what makes this different from every other PKM tool. Your memory lives in a database you own. Any MCP-capable agent can read and write it. Switch agents next year — the database doesn't care. That's the whole point.
 
@@ -49,13 +49,13 @@ The user must be able to trust the system deeply — that it doesn't contaminate
 
 *Source: #116 product trust contract comment (2026-03-14). Extends "user voice is sacred" (#93, 2026-03-13) and the traceability rule (`capture-agent.md`). Formalization tracked in #118.*
 
-### 4. Emergent structure through synthesis
+### 4. Emergent structure through clustering
 
-The gardener builds a synthesis layer from accumulated fragments: MOC-like cluster summaries that curate and sequence related fragments into coherent themes. MOCs are notes themselves. They evolve as their clusters evolve. MOCs can break up when they become too dense. MOCs can reference other MOCs — hierarchical structure emerges organically over time.
+Fragments cluster around themes over time. The gardener detects these clusters by combining multiple signals — embedding similarity, tag co-occurrence, and explicit links — into a weighted graph, then running community detection. Clusters are flat with overlap (fragments can belong to multiple clusters), and a resolution parameter controls granularity. No fixed hierarchy is imposed.
 
-This is how ideas evolve in the system. Not by revising old notes, but by accumulating new fragments that cluster, link, and eventually coalesce into something the synthesis layer can describe. The synthesis layer could also govern exports to human-readable formats.
+This is how ideas evolve in the system. Not by revising old notes, but by accumulating new fragments that cluster, link, and eventually coalesce into themes you can browse. The primary use case is undirected exploration — seeing what's on your mind, tracing how ideas connect across domains, discovering that instrument-making and laser-cutting share a thread you hadn't noticed. Whether narrative MOC-like synthesis is needed on top of this is an open question (#120) that depends on whether cluster exploration alone satisfies the browsing use case.
 
-*Source: #116 (2026-03-14). Design questions tracked in #120. Literature basis: Milo's MOCs (navigational superstructure that evolves with its cluster), Ahrens (look into the slip-box to see where ideas have built up to clusters).*
+*Source: #116 (2026-03-14), reframed in #144 design session (2026-03-17). Literature basis: Milo's MOCs (navigational superstructure), Ahrens (look into the slip-box to see where ideas cluster). Algorithm choice informed by literature review (#148).*
 
 ### 5. Maturity is computed, not assigned
 

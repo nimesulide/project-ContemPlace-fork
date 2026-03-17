@@ -167,17 +167,30 @@ Delivered:
 - **Bot command registration** — both `/start` and `/undo` registered via Telegram `setMyCommands` API
 - **9 unit tests** covering grace window, boundary, custom config, error propagation
 
-## Cluster exploration — active investigation
+## Cluster exploration — active design phase
 
-The synthesis layer (#120) was designed as MOC generation from fragment clusters. A first-principles design session (2026-03-16) reframed the question: the real use case isn't narrative summarization of clusters — it's **undirected browsing**. Seeing the shape of your thinking without knowing what you're looking for. The Obsidian graph view served this; nothing in the current MCP surface does.
+The synthesis layer (#120) was designed as MOC generation from fragment clusters. A first-principles design session (2026-03-16) reframed the question: the real use case isn't narrative summarization — it's **undirected browsing**. Seeing the shape of your thinking without knowing what you're looking for. The Obsidian graph view served this; nothing in the current MCP surface does.
 
-A `list_clusters` tool that groups fragments by tag co-occurrence and ranks clusters by gravity (size × link density) could provide the overview without any LLM synthesis — cheap, always current, trust-contract-safe by construction. Existing tools handle drill-down. Whether narrative synthesis is needed on top of this is an open question that depends on whether the overview alone satisfies the browsing use case.
+A literature review and design session (2026-03-17) produced concrete design decisions:
 
-**Active issues:**
-- **#144** — Design: cluster exploration tool (approaches, output format, relationship to dashboard)
-- **#145** — Investigation: run tag co-occurrence clustering against the current corpus to validate the approach
-- **#120** — Synthesis layer (reframed — may be unnecessary if cluster exploration is sufficient)
-- **#101** — Visual dashboard (cluster data is a primary input for visual presentation)
+- **Approach:** Weighted graph fusion combining embeddings (cosine similarity), tags (Jaccard co-occurrence), explicit links, and eventually entities into a single weighted edge. Weights are tunable parameters.
+- **Algorithm:** Louvain community detection via Graphology (TypeScript-native, works in V8). Custom implementation not ruled out.
+- **Structure:** Flat clusters with overlap — no hierarchy, no nesting. A resolution parameter controls granularity; the consumer picks the zoom level. Hard assignment rejected; multi-membership from day one.
+- **Computation:** Gardener-time, stored in DB. A `list_clusters` MCP tool reads pre-computed results.
+- **Labels:** LLM-assisted at gardening time for dashboard-browseable cluster names.
+- **Gravity:** Recency-weighted, not just size — new clusters about current work should surface even when small.
+
+**Signal quality caveat:** All current signals (tags, links, similarity thresholds) are proof-of-concept quality, set during initial development and never empirically validated. The clustering design accounts for this — signal quality improvements run in parallel with the feature.
+
+**Sequenced next steps:**
+1. **#152** — Quick experiment: weighted graph clustering against live corpus to validate the approach
+2. **#149** — Threshold assessment: capture-time and gardener-time linking purpose and thresholds (elevated to key product feature)
+3. **#151** — Capture-time tag quality and consistency
+4. **#147** — Gardener-time tag normalization (synonym expansion)
+5. **#144** — Gardener clustering pipeline + `list_clusters` tool
+6. **#125** — Entity dictionary (fourth clustering signal)
+
+**Related:** #120 (synthesis — may be unnecessary if cluster exploration suffices), #101 (visual dashboard — cluster data is primary input)
 
 ## Phase 3 — Associative trails and beyond (deferred)
 

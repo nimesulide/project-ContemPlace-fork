@@ -109,6 +109,7 @@ tests/
     harvest-ideas.md      # Custom command: search corpus for actionable product ideas, cross-reference with issues
     audit-captures.md     # Custom command: capture quality audit — body fidelity, title style, linking, retrieval
     work-on-issue.md      # Custom command: full issue workflow — gather → review → plan → implement → verify → ship
+    reflect.md            # Custom command: session-closing ritual — review pushbacks, improve commands/docs/memory
 docs/                # Detailed documentation (architecture, capture agent, schema, decisions, roadmap)
 wrangler.toml        # Telegram Worker Cloudflare config
 package.json
@@ -332,6 +333,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 - **v4.0.0 (complete):** Schema simplification bundle (#128, PR #131). Dropped 3 tables (concepts, note_concepts, note_chunks), 3 columns (refined_tags, maturity, importance_score), 2 RPC functions (match_chunks, batch_update_refined_tags). Link types simplified from 9 → 3 (contradicts, related, is-similar-to). MCP tools reduced from 8 → 5. Gardener simplified to similarity linking only.
 - **remove_note (complete):** MCP tool for note removal with time-dependent behavior (#87, PR #140). Notes < 11 min: permanently deleted. Older: soft archive. All existing tools now filter `archived_at IS NULL`. Renamed from `archive_note` — the old name promised archival but could permanently delete.
 - **Telegram /undo (complete):** `/undo` command hard-deletes most recent Telegram capture within grace window (#142, PR #143). Source-scoped (Telegram only), grace-window-only (refuses after 11 min). Bot commands registered automatically by `deploy.sh`.
+- **Cluster exploration (active design phase):** Weighted graph fusion (embeddings + tags + links + entities) with Louvain community detection. Flat clusters with overlap, resolution parameter for granularity. Gardener-time computation, `list_clusters` MCP tool reads pre-computed results. Design decided (#144), experiment next (#152). Signal quality improvements in parallel (#149, #151, #147).
 - **Phase 3 (deferred):** Associative trails, location extraction.
 
 ## Deploy
@@ -362,11 +364,11 @@ Use `--skip-smoke` to skip step 8 and test manually.
 
 **The problem ContemPlace solves:** Every AI agent builds memory about you in its own proprietary garden — isolated, non-portable, and non-trivial to even extract. Switching to a new tool means starting from zero. ContemPlace inverts this: your memory lives in a database you own, any MCP-capable agent can read and write it, and your accumulated context travels with you. You stop being locked into any single agent's ecosystem.
 
-**Emergent structure, not imposed structure.** Fragments cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and generate visual representations. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened fragments. This is closer to maps of content (MOCs) than to folders or categories. A planned synthesis layer (#116) will generate MOC-like cluster summaries from accumulated fragments.
+**Emergent structure, not imposed structure.** Fragments cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and discover cross-domain connections. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened fragments. Cluster detection (#144, active design phase) will use weighted graph fusion (embeddings + tags + links + entities) with Louvain community detection — flat clusters with overlap and a resolution parameter for granularity. Whether narrative MOC-like synthesis is needed on top of cluster exploration is an open question (#120).
 
 ### What is ContemPlace?
 
-A commonplace book that becomes a PKM system. You use it as you would a commonplace book — send whatever is on your mind, no processing obligation. Under the hood, the system turns your accumulation into organized, queryable knowledge through gardening (similarity links) and eventually synthesis (cluster summaries). The MCP surface makes your memory portable across any agent.
+A commonplace book that becomes a PKM system. You use it as you would a commonplace book — send whatever is on your mind, no processing obligation. Under the hood, the system turns your accumulation into organized, queryable knowledge through gardening (similarity links, cluster detection) and retrieval via MCP. The MCP surface makes your memory portable across any agent.
 
 The irreducible core is the **database + MCP surface + gardening pipeline**. The Telegram bot, import tools, and a dashboard are optional input/presentation layers.
 
@@ -390,7 +392,7 @@ The system captures idea fragments — whatever the user sends, in their own voi
 
 ### Trust contract
 
-The system is a faithful mirror, not a co-author. This applies to the capture pipeline and (when built) the synthesis layer:
+The system is a faithful mirror, not a co-author. This applies to the capture pipeline, cluster labels, and any future synthesis:
 - **No contamination.** Never put inferred statements in the user's voice.
 - **No garbage.** Everything in the system traces to something the user actually said.
 - **Full traceability.** Every structured or synthesized statement cites source fragments.
@@ -402,7 +404,7 @@ The single capture path is implemented (PR #90, issue #46): the Telegram Worker 
 
 The `raw_input` column preserves the user's exact words. The structured fragment (title, body, tags, links) is the LLM's interpretation — useful for retrieval, but the raw input is the irreplaceable source of truth and must never be discarded.
 
-A synthesis layer (#116) is planned: the gardener will detect clusters of related fragments and generate MOC-like summaries. The trust contract constrains this — synthesis must be analytical and traceable, never inferential. Design is open; see #116.
+Cluster exploration (#144) is the active design phase: the gardener will detect clusters via weighted graph fusion and Louvain community detection, storing pre-computed results for a `list_clusters` MCP tool. Whether narrative MOC-like synthesis (#120) is needed on top of this is an open question — cluster browsing may be sufficient. The trust contract constrains any synthesis — it must be analytical and traceable, never inferential.
 
 ## Design Philosophy
 
@@ -466,7 +468,7 @@ Each layer owns a specific type of information. **Never duplicate across layers*
 | **`docs/schema.md`** | All tables, RPC functions, indexes, columns. | When schema or RPC functions change |
 | **`docs/architecture.md`** | Workers, data flow, embedding strategy, error handling. | When architecture changes |
 | **`docs/usage.md`** | The experience layer: what daily use looks like — capture, retrieval, curation, gardener. The "so what" document for someone who just deployed. | When user-facing behavior changes |
-| **`docs/philosophy.md`** | Product design principles: fragment-first capture, trust contract, synthesis layer, emergent structure. The "why" behind architectural choices. | When product principles change |
+| **`docs/philosophy.md`** | Product design principles: fragment-first capture, trust contract, emergent clustering, user voice. The "why" behind architectural choices. | When product principles change |
 | **`docs/capture-agent.md`** | Capture pipeline behavior, linking logic, voice correction. | When capture behavior changes |
 | **`CLAUDE.md`** | Stable AI context: architecture, hard constraints, key files, conventions. No current state, no issue indexes, no phase status. | When architecture or conventions change |
 | **`README.md`** | Product front door: what it is, how it works, trust and control, FAQ, documentation index. No bash commands, no config tables. | When any user-visible surface changes |
