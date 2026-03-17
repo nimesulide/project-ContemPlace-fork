@@ -125,7 +125,8 @@ gardener/         Gardener Worker (nightly similarity linking)
     work-on-issue.md      Full issue workflow (gather → review → plan → implement → ship)
     reflect.md            Session-closing ritual: review pushbacks, improve commands/docs/memory
 scripts/
-  deploy.sh       Automated deploy pipeline
+  deploy.sh                 Automated deploy pipeline
+  cluster-experiment.ts     Clustering experiment — weighted graph + Louvain against live corpus (read-only)
 supabase/
   migrations/     Schema migrations (v4 is current)
 tests/

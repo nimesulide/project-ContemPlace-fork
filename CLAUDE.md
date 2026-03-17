@@ -80,6 +80,7 @@ gardener/
     types.ts         # Gardener-specific TypeScript interfaces
 scripts/
   deploy.sh          # Automated deploy pipeline (schema → typecheck → unit tests → MCP Worker → Telegram Worker → bot commands → Gardener Worker → smoke tests)
+  cluster-experiment.ts  # Clustering experiment — weighted graph + Louvain against live corpus (read-only, run via `npx tsx`)
 supabase/
   config.toml
   migrations/
@@ -226,6 +227,13 @@ npx vitest run tests/gardener-integration.test.ts
 # ln -s ../.dev.vars gardener/.dev.vars
 npx wrangler dev -c gardener/wrangler.toml --test-scheduled
 # then: curl "http://localhost:8787/__scheduled?cron=0+2+*+*+*"
+
+# ── Clustering Experiment ─────────────────────────────────────────────────────
+# Run weighted graph clustering against live corpus (read-only, no writes)
+npx tsx scripts/cluster-experiment.ts
+
+# With custom cosine floor threshold
+npx tsx scripts/cluster-experiment.ts --floor=0.40
 ```
 
 ## Hard Constraints
@@ -333,7 +341,7 @@ Verify: `curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 - **v4.0.0 (complete):** Schema simplification bundle (#128, PR #131). Dropped 3 tables (concepts, note_concepts, note_chunks), 3 columns (refined_tags, maturity, importance_score), 2 RPC functions (match_chunks, batch_update_refined_tags). Link types simplified from 9 → 3 (contradicts, related, is-similar-to). MCP tools reduced from 8 → 5. Gardener simplified to similarity linking only.
 - **remove_note (complete):** MCP tool for note removal with time-dependent behavior (#87, PR #140). Notes < 11 min: permanently deleted. Older: soft archive. All existing tools now filter `archived_at IS NULL`. Renamed from `archive_note` — the old name promised archival but could permanently delete.
 - **Telegram /undo (complete):** `/undo` command hard-deletes most recent Telegram capture within grace window (#142, PR #143). Source-scoped (Telegram only), grace-window-only (refuses after 11 min). Bot commands registered automatically by `deploy.sh`.
-- **Cluster exploration (active design phase):** Weighted graph fusion (embeddings + tags + links + entities) with Louvain community detection. Flat clusters with overlap, resolution parameter for granularity. Gardener-time computation, `list_clusters` MCP tool reads pre-computed results. Design decided (#144), experiment next (#152). Signal quality improvements in parallel (#149, #151, #147).
+- **Cluster exploration (active design phase):** Louvain community detection via Graphology. Experiment (#152) validated cosine-only as starting point — 3 coherent clusters at resolution 1.0 across 164 notes. Multi-resolution overlap model (134/164 notes change cluster across resolutions). Tags and links are an upgrade path pending quality improvements (#151, #147). Gardener-time computation, `list_clusters` MCP tool reads pre-computed results. Implementation next (#144).
 - **Phase 3 (deferred):** Associative trails, location extraction.
 
 ## Deploy
@@ -364,7 +372,7 @@ Use `--skip-smoke` to skip step 8 and test manually.
 
 **The problem ContemPlace solves:** Every AI agent builds memory about you in its own proprietary garden — isolated, non-portable, and non-trivial to even extract. Switching to a new tool means starting from zero. ContemPlace inverts this: your memory lives in a database you own, any MCP-capable agent can read and write it, and your accumulated context travels with you. You stop being locked into any single agent's ecosystem.
 
-**Emergent structure, not imposed structure.** Fragments cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and discover cross-domain connections. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened fragments. Cluster detection (#144, active design phase) will use weighted graph fusion (embeddings + tags + links + entities) with Louvain community detection — flat clusters with overlap and a resolution parameter for granularity. Whether narrative MOC-like synthesis is needed on top of cluster exploration is an open question (#120).
+**Emergent structure, not imposed structure.** Fragments cluster around themes over time. Some nodes gain gravitational weight — many connections, recent activity. The user can explore what's currently on their mind, trace how ideas evolved, and discover cross-domain connections. The system doesn't impose organization; organization emerges from the accumulation of linked, gardened fragments. Cluster detection (#144) uses Louvain community detection via Graphology — starting with cosine similarity only, with tag Jaccard, explicit links, and entities as incremental upgrades as signal quality improves. Flat clusters with overlap via multi-resolution (notes that change cluster across resolutions are overlap candidates). Whether narrative MOC-like synthesis is needed on top of cluster exploration is an open question (#120).
 
 ### What is ContemPlace?
 
@@ -404,7 +412,7 @@ The single capture path is implemented (PR #90, issue #46): the Telegram Worker 
 
 The `raw_input` column preserves the user's exact words. The structured fragment (title, body, tags, links) is the LLM's interpretation — useful for retrieval, but the raw input is the irreplaceable source of truth and must never be discarded.
 
-Cluster exploration (#144) is the active design phase: the gardener will detect clusters via weighted graph fusion and Louvain community detection, storing pre-computed results for a `list_clusters` MCP tool. Whether narrative MOC-like synthesis (#120) is needed on top of this is an open question — cluster browsing may be sufficient. The trust contract constrains any synthesis — it must be analytical and traceable, never inferential.
+Cluster exploration (#144) is next for implementation: the gardener will detect clusters via cosine-only Louvain community detection (validated by #152 experiment), storing pre-computed results for a `list_clusters` MCP tool. Multi-resolution overlap via comparing cluster membership across resolutions. Tags, links, and entities are upgrade paths as signal quality improves (#151, #147, #125). Whether narrative MOC-like synthesis (#120) is needed on top of this is an open question — cluster browsing may be sufficient. The trust contract constrains any synthesis — it must be analytical and traceable, never inferential.
 
 ## Design Philosophy
 

@@ -1042,3 +1042,33 @@ Louvain via Graphology is the practical algorithm choice — the only production
 Each linking mechanism has a distinct purpose: capture-time links are LLM-reasoned semantic judgments (how ideas relate), gardener-time links are mathematical proximity (bridging temporal gaps). If clustering needs denser links than capture quality does, a separate clustering-time similarity pass may be warranted.
 
 **Source:** #144 research session, 2026-03-17. #91 and #146 folded into #149.
+
+## Cosine-only clustering as starting implementation (2026-03-17)
+
+**Decision:** Implement the gardener clustering pipeline (#144) with cosine similarity only. The full weighted fusion formula (α·cosine + β·jaccard_tags + γ·links + δ·entities) becomes an incremental upgrade path — each signal added after its quality is validated via the experiment script.
+
+**Why:** The #152 experiment ran 6 weight configurations against the live corpus (164 notes, 13,366 pairs). Pure cosine at resolution 1.0 produced 3 coherent clusters that map to real domains: ContemPlace/PKM (74 notes), making/instruments (57 notes), pen-plotting/art (33 notes). Adding tags shifted a few boundary notes but didn't restructure — only 5.4% of note pairs share any tag, so Jaccard is near-zero for most edges. Adding gardener links moved only 9 notes vs the cosine baseline. The other signals reinforce what cosine already captures rather than adding new information.
+
+Starting cosine-only reduces implementation complexity, removes the need to tune weight ratios before there's data to tune against, and lets each signal quality improvement (#151 tags, #147 normalization, #125 entities) be validated independently by re-running the experiment script before adding it to production.
+
+**Source:** #152 experiment results, 2026-03-17.
+
+## Multi-resolution Louvain as the overlap model (2026-03-17)
+
+**Decision:** Model cluster overlap by running Louvain at multiple resolutions (e.g., 0.5, 1.0, 1.5, 2.0) and comparing membership across them. Notes that change cluster assignment across resolutions are the overlap candidates. No fuzzy algorithms, no custom overlap detection.
+
+**Why:** The #152 experiment showed that 134 of 164 notes change cluster assignment across resolutions. At resolution 1.0, 66 notes have >30% of their edge weight outside their own community. Modularity is low (0.27–0.32) — the corpus has soft boundaries, expected for a commonplace book where ideas cross domains.
+
+Multi-resolution comparison is the simplest approach that captures real overlap. The pen-plotting cluster (C2) is especially porous — most notes pull toward making (C1) — and these are genuinely cross-domain notes (plotter postcards connect to correspondence, plotter enclosures connect to laser cutting). Running at 2–3 resolutions and reporting membership across them gives useful overlap information without fuzzy algorithms.
+
+**Source:** #152 experiment results, 2026-03-17.
+
+## Tag Jaccard is near-zero — tag quality is a clustering prerequisite (2026-03-17)
+
+**Decision:** Do not include tag Jaccard in the clustering formula until tag quality improves (#151, #147). With current tag generation, the signal is too weak to contribute.
+
+**Why:** The #152 experiment quantified the problem: 478 unique tags across 164 notes, but only 5.4% of note pairs share any tag. Tag fragmentation is visible — `pen-plotting` vs `plotter` vs `generative-art` for the same domain, `knowledge-capture` vs `knowledge-management` vs `note-taking` as near-synonyms. Adding tag Jaccard at α=0.4, β=0.5 produced 4 clusters vs 3 for cosine-only — a modest improvement driven by a few high-frequency tags like `contemplace`, not by general tag quality.
+
+This confirms the design memo's signal quality caveat: current signals are proof-of-concept. Tag quality improvements (#151) and normalization (#147) are prerequisites for tags to carry useful clustering signal.
+
+**Source:** #152 experiment results, 2026-03-17.

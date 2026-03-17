@@ -180,14 +180,24 @@ A literature review and design session (2026-03-17) produced concrete design dec
 - **Labels:** LLM-assisted at gardening time for dashboard-browseable cluster names.
 - **Gravity:** Recency-weighted, not just size — new clusters about current work should surface even when small.
 
-**Signal quality caveat:** All current signals (tags, links, similarity thresholds) are proof-of-concept quality, set during initial development and never empirically validated. The clustering design accounts for this — signal quality improvements run in parallel with the feature.
+### Experiment results (#152, 2026-03-17)
+
+A local experiment script (`scripts/cluster-experiment.ts`) ran weighted graph clustering against the live corpus (164 notes) with 6 weight configurations across 4 resolutions. Key findings:
+
+- **Cosine-only produces coherent clusters.** At resolution 1.0, three clusters map to real domains: ContemPlace/PKM (74 notes), making/instruments (57 notes), pen-plotting/art (33 notes).
+- **Resolution is the most useful parameter.** 0.5 → 1 cluster, 1.0 → 3, 1.5 → 6, 2.0 → 9+. Genuinely controls zoom level.
+- **Tags add marginal signal.** Only 5.4% of note pairs share any tag. Tag Jaccard is near-zero for most edges.
+- **Links reinforce cosine.** Adding gardener links moved only 9/164 notes vs the cosine baseline.
+- **Overlap is real.** 134/164 notes change cluster across resolutions. Modularity is low (0.27–0.32) — soft boundaries, expected for a commonplace book.
+
+**Decision:** Start with cosine-only clustering. The fusion formula (tags, links, entities) becomes an upgrade path as signal quality improves. Multi-resolution Louvain is the overlap model. See `docs/decisions.md` for the full ADRs.
 
 **Sequenced next steps:**
-1. **#152** — Quick experiment: weighted graph clustering against live corpus to validate the approach
-2. **#149** — Threshold assessment: capture-time and gardener-time linking purpose and thresholds (elevated to key product feature)
-3. **#151** — Capture-time tag quality and consistency
-4. **#147** — Gardener-time tag normalization (synonym expansion)
-5. **#144** — Gardener clustering pipeline + `list_clusters` tool
+1. ~~**#152** — Experiment: weighted graph clustering against live corpus~~ **Done.** Validated cosine-only, resolution parameter, multi-resolution overlap.
+2. **#149** — Threshold assessment (elevated to key product feature)
+3. **#151** — Capture-time tag quality and consistency (quantified: 478 unique tags, 5.4% pair overlap)
+4. **#147** — Gardener-time tag normalization
+5. **#144** — Gardener clustering pipeline + `list_clusters` tool (cosine-only first iteration)
 6. **#125** — Entity dictionary (fourth clustering signal)
 
 **Related:** #120 (synthesis — may be unnecessary if cluster exploration suffices), #101 (visual dashboard — cluster data is primary input)
