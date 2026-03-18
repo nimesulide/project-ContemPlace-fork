@@ -59,16 +59,38 @@ Always follow this sequence:
 
 For read-only tasks (triage, audits, research that only posts issue comments), a worktree is optional — they can run against the main directory. But if in doubt, use a worktree.
 
-## Writing good dispatch prompts
+## Dispatching tasks — use custom commands when they fit
 
-The agents you launch have no shared context with you. Each prompt must be self-contained:
+Before writing a raw prompt for a workspace, check the available custom commands in `.claude/commands/` and pick the one that best matches the task type. Custom commands encode project-specific workflows (planning, review, verification, doc sweeps) that a raw prompt would miss.
+
+| Command | When to use |
+|---|---|
+| `/work-on-issue <number>` | **Any task tied to a GitHub issue that involves implementation.** Covers the full cycle: gather context → hypothesis check → specialist review → plan → implement → verify → ship → doc sweep. This is the default for issue-based work. |
+| `/audit-captures` | Capture quality audits |
+| `/harvest-ideas` | Searching the corpus for product ideas |
+| `/extract-fragments` | Obsidian re-capture sessions |
+| `/reflect` | Session-closing review |
+
+**How to dispatch a custom command:** Send the slash command as the prompt text. The receiving Claude session will expand it into its full workflow.
+
+```bash
+# Implementation task — use /work-on-issue
+cmux send --workspace workspace:<n> "/work-on-issue 156"
+cmux send-key --workspace workspace:<n> Enter
+
+# Audit task — use /audit-captures
+cmux send --workspace workspace:<n> "/audit-captures"
+cmux send-key --workspace workspace:<n> Enter
+```
+
+**When NO custom command fits** (ad-hoc research, one-off scripts, cross-cutting tasks), write a self-contained raw prompt:
 
 - **State the goal clearly** — what output do you expect?
 - **State the constraints** — investigation only? Implementation? What NOT to do?
 - **State the deliverable** — issue comment? PR? Committed code? A report back?
 - **Include issue numbers** — the agent can look them up via `gh issue view`
 
-Example — investigation task:
+Example — investigation task (no matching command):
 ```
 Investigate GitHub issue #149 (threshold tuning). This is INVESTIGATION ONLY — do NOT implement anything.
 
@@ -81,14 +103,6 @@ Investigate GitHub issue #149 (threshold tuning). This is INVESTIGATION ONLY —
 No branches, no PRs, no code changes.
 ```
 
-Example — implementation task:
-```
-Implement the feature described in issue #153 (clustering pipeline).
-
-Read the issue, understand the spec, implement it, write tests, and open a PR against main.
-Follow the project's conventions in CLAUDE.md. Run typecheck and unit tests before committing.
-```
-
 ## Monitoring
 
 Periodically check on running sessions:
@@ -98,7 +112,7 @@ cmux capture-pane --workspace workspace:<n> --scrollback --lines 80
 ```
 
 Look for:
-- **Permission prompts** — agents stuck waiting for approval (you can't approve for them; tell the user)
+- **Permission prompts** — agents stuck waiting for approval. You can press Enter via `cmux send-key` to accept the default option, but you CANNOT navigate multi-option menus (arrow keys don't work in cmux). If the agent needs a non-default choice, tell the user to approve it directly.
 - **Errors** — failed commands, stuck loops
 - **Completion** — the agent has finished and is waiting for input
 - **Progress** — what step the agent is on
@@ -123,11 +137,12 @@ git branch -d <branch-name>                             # delete local branch
 ## Your workflow
 
 1. **When the user gives you tasks**, decide: which can run in parallel? Which depend on each other?
-2. **Create worktrees and workspaces** for parallel tasks
-3. **Dispatch prompts** to each workspace
-4. **Monitor** periodically and report status when asked
-5. **Handle problems** — if a workspace is stuck on permissions, tell the user. If an agent made a mistake, you can send follow-up instructions to that workspace.
-6. **Clean up** when tasks complete — merge, remove worktrees, delete branches
+2. **Match each task to a custom command** — check `.claude/commands/` for a workflow that fits. Default to `/work-on-issue <number>` for any issue-based implementation work.
+3. **Create worktrees and workspaces** for parallel tasks
+4. **Dispatch** — send the custom command (or raw prompt if none fits) to each workspace
+5. **Monitor** periodically and report status when asked
+6. **Handle problems** — if a workspace is stuck on permissions, tell the user. If an agent made a mistake, you can send follow-up instructions to that workspace.
+7. **Clean up** when tasks complete — merge, remove worktrees, delete branches
 
 ## What you do NOT do
 

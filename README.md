@@ -24,7 +24,7 @@ Postgres you can always query and export. The whole stack runs on free tiers. LL
 
 1. You send a thought — raw text, voice transcription, a link, whatever
 2. The [capture agent](docs/capture-agent.md) titles it, corrects voice errors, tags it, and links it to related notes — your exact words are always preserved
-3. A nightly gardener finds connections between your notes that you didn't make explicitly
+3. A nightly gardener finds connections you didn't make explicitly and detects thematic clusters across your fragments
 4. Any MCP-capable agent can search, browse, and build on your accumulated knowledge
 
 <div align="center">
@@ -92,7 +92,7 @@ Any MCP-capable client. Tested with Claude.ai (via OAuth) and Claude Code CLI (v
 
 ### Does value actually scale?
 
-Each new fragment creates edges in the graph. The nightly gardener finds similarity links you didn't ask for. After a few hundred fragments, ask any agent "what have I been thinking about X?" and the graph does the work. You never organized anything manually — the structure emerged from accumulation.
+Each new fragment creates edges in the graph. The nightly gardener finds similarity links you didn't ask for and detects thematic clusters — groups of fragments that share a thread. After a few hundred fragments, ask any agent "what have I been thinking about X?" and the graph does the work. You never organized anything manually — the structure emerged from accumulation.
 
 ### What happens if I stop using it?
 

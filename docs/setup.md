@@ -246,7 +246,7 @@ Send a text message to your bot. You should get a structured confirmation back w
 
 ## 7. Deploy the Gardener Worker
 
-The gardener runs nightly at 02:00 UTC, creating similarity links between notes. It's what turns the database from a note store into a connected knowledge graph.
+The gardener runs nightly at 02:00 UTC, creating similarity links between notes and detecting thematic clusters via Louvain community detection. It's what turns the database from a note store into a connected knowledge graph.
 
 ```bash
 wrangler secret put SUPABASE_URL -c gardener/wrangler.toml
@@ -275,9 +275,11 @@ curl -X POST "https://contemplace-gardener.<YOUR_SUBDOMAIN>.workers.dev/trigger"
 
 | Variable | Description |
 |---|---|
-| `GARDENER_SIMILARITY_THRESHOLD` | Cosine similarity floor for `is-similar-to` links (augmented-vs-augmented) |
+| `GARDENER_SIMILARITY_THRESHOLD` | Cosine similarity gate for `is-similar-to` links (augmented-vs-augmented) |
+| `GARDENER_COSINE_FLOOR` | Minimum similarity for the all-pairs query — gates both linking candidates and graph construction for clustering |
+| `GARDENER_CLUSTER_RESOLUTIONS` | Comma-separated Louvain resolution values (e.g. `1.0,1.5,2.0`). Higher = more granular clusters |
 
-Deployed value in `gardener/wrangler.toml` `[vars]`. Code default in `gardener/src/config.ts`.
+Deployed values in `gardener/wrangler.toml` `[vars]`. Code defaults in `gardener/src/config.ts`.
 
 ## 8. Configure automated backups (optional)
 

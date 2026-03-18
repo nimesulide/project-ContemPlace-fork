@@ -86,7 +86,7 @@ Best-effort Telegram failure alerts (`sendAlert()`). Optional `POST /trigger` en
 
 ## Phase 2c — OAuth 2.1 (complete) — issue #5 — `v3.0.0`
 
-Added OAuth 2.1 Authorization Code + PKCE to the MCP server for browser-based clients. Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens, Dynamic Client Registration, and S256-only PKCE. Static `MCP_API_KEY` retained permanently for API/SDK callers. Plan doc: `docs/phase-2c-oauth-plan.md`.
+Added OAuth 2.1 Authorization Code + PKCE to the MCP server for browser-based clients. Uses `@cloudflare/workers-oauth-provider` with KV-backed opaque tokens, Dynamic Client Registration, and S256-only PKCE. Static `MCP_API_KEY` retained permanently for API/SDK callers. Plan doc archived in [#173](https://github.com/freegyes/project-ContemPlace/issues/173).
 
 ### Delivered
 

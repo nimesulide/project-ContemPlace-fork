@@ -109,7 +109,7 @@ tests/
   gardener-trigger.test.ts    # Unit tests for /trigger endpoint auth + routing
   gardener-integration.test.ts # Integration test: capture → gardener /trigger → get_related (live stack)
 .claude/
-  settings.json         # Project-level permissions (Edit/Write on working directories — inherited by worktrees)
+  settings.json         # Project-level permissions (Edit/Write/Bash on working directories — inherited by worktrees)
   commands/
     orchestrate.md      # Custom command: orchestrator mode — parallel cmux workspaces + git worktrees
     extract-fragments.md  # Custom command: topic-driven Obsidian re-capture sessions — search vault, decompose, re-voice, interactive capture
@@ -163,6 +163,11 @@ GARDENER_API_KEY              # optional — enables POST /trigger endpoint (gen
 GARDENER_SIMILARITY_THRESHOLD  # augmented-vs-augmented cosine similarity for is-similar-to links.
                                 # Distinct comparison basis from MATCH_THRESHOLD (raw vs. augmented)
                                 # and MCP_SEARCH_THRESHOLD (bare NL vs. augmented).
+GARDENER_COSINE_FLOOR          # minimum cosine similarity for graph edges used in clustering.
+                                # Lower than GARDENER_SIMILARITY_THRESHOLD — clustering needs a broader
+                                # graph to detect community structure.
+GARDENER_CLUSTER_RESOLUTIONS   # comma-separated Louvain resolution values (e.g., "1.0,1.5,2.0").
+                                # Higher resolution → more, smaller clusters.
 
 # Test-only
 WORKER_URL                  # deployed Telegram Worker URL, for smoke tests

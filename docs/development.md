@@ -122,6 +122,7 @@ gardener/         Gardener Worker (nightly similarity linking + cluster detectio
   wrangler.toml
 .claude/
   commands/       Custom command prompts (Claude Code slash commands)
+    orchestrate.md        Orchestrator mode — parallel cmux workspaces + git worktrees
     extract-fragments.md  Example recipe: topic-driven Obsidian re-capture sessions
     harvest-ideas.md      Search corpus for actionable product ideas
     audit-captures.md     Capture quality audit
@@ -180,6 +181,7 @@ to load specific vars for subcommands.
 | Document | Contents |
 |---|---|
 | [Usage guide](usage.md) | What daily use looks like — capture, retrieval, curation, gardener |
+| [Philosophy](philosophy.md) | Design principles and why each exists — the constraints the system is built against |
 | [Architecture](architecture.md) | Async capture flow, two-pass embedding, prompt structure, error handling |
 | [Capture agent](capture-agent.md) | Linking logic, voice correction, fragment capture behavior |
 | [Schema](schema.md) | All tables, RPC functions, indexes, RLS |

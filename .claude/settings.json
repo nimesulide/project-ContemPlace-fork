@@ -8,13 +8,23 @@
       "Edit(scripts/**)",
       "Edit(gardener/**)",
       "Edit(supabase/**)",
+      "Edit(.github/**)",
       "Write(docs/**)",
       "Write(src/**)",
       "Write(mcp/**)",
       "Write(tests/**)",
       "Write(scripts/**)",
       "Write(gardener/**)",
-      "Write(supabase/**)"
+      "Write(supabase/**)",
+      "Write(.github/**)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(npx:*)",
+      "Bash(npm:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(wrangler:*)",
+      "Bash(supabase:*)"
     ]
   }
 }
