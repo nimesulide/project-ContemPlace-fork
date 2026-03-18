@@ -1125,3 +1125,16 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 **Why:** Capture-time links are LLM-reasoned and typed (`contradicts`, `related`) — higher signal than gardener links (`is-similar-to`), which are mathematical proximity without reasoning about *why*. The architecture defines gardener links as supplementary: they "complete the similarity graph that capture-time linking structurally cannot." Pure confidence-descending ordering would invert this hierarchy because capture-time links have `confidence: null` (no cosine score stored). Ordering matters more as gardener link volume increases at the lower 0.65 threshold.
 
 **Source:** #149 investigation. Derived from architecture.md § Gardener Goal.
+
+## Backup implementation: separate private repo, public schema only (2026-03-18)
+
+**Decision:** Implementation choices for the automated backup workflow (#159):
+
+1. **Storage target: separate private GitHub repo.** Not an orphan branch in the main repo (data dumps could be exposed if the main repo is public), not GitHub Artifacts (90-day expiration), not R2 (unnecessary complexity for v1). Git history provides natural retention and deduplication.
+2. **Data dump scoped to `--schema public`.** The initial implementation dumped all schemas, which included Supabase internal tables (`auth`, `storage`) that failed with "permission denied" on restore. Scoping to `public` produces a clean dump that restores without errors.
+3. **Verification via loose grep.** `pg_dump` quotes identifiers (`"public"."notes"`, not `COPY public.notes`), so verification checks use loose string matching. Checks confirm: non-empty files, pgvector present, both RPC functions present, notes data present, `capture_profiles` seed present.
+4. **No `deploy.sh` integration.** The issue spec suggested an advisory check ("backup workflow not detected"). Skipped — the backup is orthogonal to the deploy pipeline and the setup guide covers it clearly.
+
+**Why:** Discovered during implementation and restore testing. The `--schema public` fix was the most significant — it turned a documented workaround into a clean solution. The quoting issue was caught by the first GitHub Actions run (schema dump is produced by Supabase's pg_dump Docker image, which quotes all identifiers).
+
+**Source:** #159 implementation, restore round-trip test on throwaway Supabase project (2026-03-18).

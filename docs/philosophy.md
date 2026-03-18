@@ -121,7 +121,9 @@ The irreducible core of ContemPlace is the database + MCP surface + gardening pi
 
 Your memory lives in Postgres you can always query and export. Any MCP-capable agent can read and write it. You stop being locked into any single agent's ecosystem. Today's LLM interprets your words one way; tomorrow's can reinterpret the same raw input with better understanding. Enrichment is always additive, never destructive.
 
-*Source: Product architecture crystallized during #27 design (2026-03-10). Reaffirmed in #93 (2026-03-13) and #116 (2026-03-14).*
+Ownership without recovery is a hollow promise. An automated daily backup dumps the full database — schema, data, embeddings, RPC functions — to a private repository you control. Three SQL files, restorable with `psql`, running on free tiers. Your data isn't just queryable; it's recoverable.
+
+*Source: Product architecture crystallized during #27 design (2026-03-10). Reaffirmed in #93 (2026-03-13) and #116 (2026-03-14). Backup as enforcement of data ownership: #96 investigation, #159 implementation (2026-03-18).*
 
 ---
 
