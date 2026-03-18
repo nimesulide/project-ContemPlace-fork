@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(docs/**)",
+      "Edit(src/**)",
+      "Edit(mcp/**)",
+      "Edit(tests/**)",
+      "Edit(scripts/**)",
+      "Edit(gardener/**)",
+      "Edit(supabase/**)",
+      "Write(docs/**)",
+      "Write(src/**)",
+      "Write(mcp/**)",
+      "Write(tests/**)",
+      "Write(scripts/**)",
+      "Write(gardener/**)",
+      "Write(supabase/**)"
+    ]
+  }
+}
