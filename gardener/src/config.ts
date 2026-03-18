@@ -4,15 +4,29 @@ export interface Config {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
   similarityThreshold: number;
+  cosineFloor: number;
+  clusterResolutions: number[];
 }
 
 export function loadConfig(env: Env): Config {
   const supabaseServiceRoleKey = requireSecret(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
   validateServiceRoleKey(supabaseServiceRoleKey);
+  const similarityThreshold = parseThreshold(env.GARDENER_SIMILARITY_THRESHOLD, 0.65, 'GARDENER_SIMILARITY_THRESHOLD');
+  const cosineFloor = parseThreshold(env.GARDENER_COSINE_FLOOR, 0.40, 'GARDENER_COSINE_FLOOR');
+
+  if (cosineFloor > similarityThreshold) {
+    console.warn(
+      `GARDENER_COSINE_FLOOR (${cosineFloor}) > GARDENER_SIMILARITY_THRESHOLD (${similarityThreshold}) — ` +
+      `clustering will miss pairs in the ${cosineFloor}–${similarityThreshold} range`,
+    );
+  }
+
   return {
     supabaseUrl: requireSecret(env.SUPABASE_URL, 'SUPABASE_URL'),
     supabaseServiceRoleKey,
-    similarityThreshold: parseThreshold(env.GARDENER_SIMILARITY_THRESHOLD, 0.65, 'GARDENER_SIMILARITY_THRESHOLD'),
+    similarityThreshold,
+    cosineFloor,
+    clusterResolutions: parseResolutions(env.GARDENER_CLUSTER_RESOLUTIONS),
   };
 }
 
@@ -38,6 +52,23 @@ function validateServiceRoleKey(key: string): void {
   } catch (e) {
     if (e instanceof Error && e.message.includes('SUPABASE_SERVICE_ROLE_KEY')) throw e;
   }
+}
+
+function parseResolutions(value: string | undefined): number[] {
+  const raw = value?.trim() || '1.0,1.5,2.0';
+  const parts = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  if (parts.length === 0) {
+    throw new Error('GARDENER_CLUSTER_RESOLUTIONS must contain at least one value');
+  }
+  const resolutions: number[] = [];
+  for (const part of parts) {
+    const n = parseFloat(part);
+    if (isNaN(n) || n <= 0) {
+      throw new Error(`Invalid GARDENER_CLUSTER_RESOLUTIONS value: "${part}" — must be a positive float`);
+    }
+    resolutions.push(n);
+  }
+  return resolutions;
 }
 
 function parseThreshold(value: string | undefined, defaultValue: number, varName: string): number {
