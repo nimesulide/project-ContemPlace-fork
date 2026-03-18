@@ -61,6 +61,9 @@ logs/
 # Claude Code — local settings (user-specific permissions, not shareable)
 .claude/settings.local.json
 
+# Superpowers brainstorming sessions
+.superpowers/
+
 # MCP client configs (Phase 2 — contain API keys)
 claude_desktop_config.json
 *.mcp.json
