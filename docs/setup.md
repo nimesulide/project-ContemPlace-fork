@@ -344,13 +344,15 @@ Check the backup repository — you should see three files: `roles.sql`, `schema
 On a fresh Supabase project (or the same one after a disaster):
 
 ```bash
-psql $DB_URL -c "CREATE EXTENSION IF NOT EXISTS vector"
-psql $DB_URL -f roles.sql
+psql $DB_URL -c "CREATE EXTENSION IF NOT EXISTS vector SCHEMA extensions"
+psql $DB_URL -f roles.sql    # errors on managed Supabase — safe to ignore (roles already exist)
 psql $DB_URL -f schema.sql
-psql $DB_URL -f data.sql
+psql $DB_URL -f data.sql     # ignore "permission denied" for auth/storage internal tables
 ```
 
-Verify: note count matches, `match_notes` and `find_similar_pairs` RPCs work, `capture_profiles` seed data is present.
+The data dump includes Supabase internal schema tables (`auth`, `storage`) alongside your public schema. On managed Supabase projects, the internal tables fail with "permission denied" — this is harmless because those tables already exist. Your public schema data (notes, links, capture_profiles, etc.) restores cleanly.
+
+Verify: note count matches, `match_notes` and `find_similar_pairs` RPCs work, embeddings are queryable, `capture_profiles` seed data is present.
 
 ### Customization
 
