@@ -125,6 +125,32 @@ This is the difference between a note store and a knowledge graph. The gardener 
 
 ---
 
+## Backups: what protects your data
+
+At 4am UTC — two hours after the gardener finishes — a GitHub Actions workflow dumps your entire database to a private repository you control. Three SQL files: roles, schema (tables, indexes, RPC functions, pgvector), and data (every note, embedding, link, and the capture voice profile). The whole thing runs on free tiers.
+
+You never interact with the backup. It runs in the background, commits to the backup repo if anything changed since the last run, and stays silent unless it fails. If it does fail, GitHub Actions shows the failure in the Actions tab, and optionally sends a Telegram alert.
+
+Git history in the backup repo is your retention. Each day's backup is a commit. You can diff two days to see what changed, roll back to any point, or clone the repo for an offline copy. At current scale (~200 notes), the dump is about 4MB — git handles this effortlessly.
+
+### Restoring
+
+If you need to recover — a botched migration, a deleted project, starting fresh on a new Supabase instance — the restore is three `psql` commands:
+
+```bash
+psql $DB_URL -c "CREATE EXTENSION IF NOT EXISTS vector SCHEMA extensions"
+psql $DB_URL -f schema.sql
+psql $DB_URL -f data.sql
+```
+
+Everything comes back: notes with embeddings intact, links, RPC functions, the capture voice profile. `match_notes` and `find_similar_pairs` work immediately — no re-embedding needed.
+
+### Setting it up
+
+The workflow ships with the repo (`.github/workflows/backup.yml`). To enable it: create a private backup repo, set two GitHub secrets and one variable, trigger it once to verify. Full instructions in the [setup guide](setup.md#8-configure-automated-backups-optional).
+
+---
+
 ## A day, start to finish
 
 Morning. You have a thought over coffee about how deadlines help creativity. You voice-dictate it into Telegram. The bot titles it, tags it, links it to a note from last week about constraints in design.
@@ -137,7 +163,9 @@ Evening. You capture two more thoughts from a conversation. One comes out wrong 
 
 2am. The gardener runs. Your morning thought about deadlines connects to a fragment about procrastination you captured three weeks ago. Tomorrow, when you think about either topic, the other is one hop away.
 
-You never organized anything. The structure emerged.
+4am. The backup runs. Your entire database — every note, embedding, link, and the capture voice profile — is dumped to a private repo. If anything goes wrong tomorrow, you restore with three commands and lose nothing.
+
+You never organized anything. The structure emerged. And the data is safe.
 
 ---
 

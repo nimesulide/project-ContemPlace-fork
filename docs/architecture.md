@@ -201,6 +201,20 @@ Telegram can deliver the same webhook multiple times. The `processed_updates` ta
 
 This runs *before* the 200 response, so dedup is synchronous and guaranteed even if the background processing fails.
 
+## Automated backup
+
+The backup is not a Worker — it's a GitHub Actions workflow (`.github/workflows/backup.yml`) that runs daily at 04:00 UTC. It uses `supabase db dump` (which runs `pg_dump` inside a Docker container) to produce three SQL files:
+
+- **`roles.sql`** — database roles (`--role-only`)
+- **`schema.sql`** — DDL: tables, indexes, RPC functions, pgvector extension, RLS policies
+- **`data.sql`** — all row data in COPY format (`--data-only --use-copy --schema public`)
+
+The data dump is scoped to the `public` schema only — Supabase internal tables (`auth`, `storage`) are excluded. This means the dump restores cleanly to any Supabase project without permission errors.
+
+Dumps are pushed to a configurable private GitHub repository. Git history provides natural retention and deduplication — if nothing changed since the last backup, no commit is created. A verification step checks that dump files are non-empty, pgvector is present, RPC functions (`match_notes`, `find_similar_pairs`) are included, and notes data and `capture_profiles` seed exist.
+
+Authentication: the workflow uses a `SUPABASE_DB_URL` secret (session mode pooler connection string, port 5432) for the database connection, and a fine-grained `BACKUP_PAT` for push access to the backup repo.
+
 ## Future direction
 
 ### Fragment-first capture and synthesis layer
