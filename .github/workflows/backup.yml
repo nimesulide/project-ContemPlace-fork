@@ -35,10 +35,10 @@
 # ── Restore ──────────────────────────────────────────────────────────────────
 #
 #   On a fresh or existing Supabase project:
-#     psql $DB_URL -c "CREATE EXTENSION IF NOT EXISTS vector"
-#     psql $DB_URL -f roles.sql
+#     psql $DB_URL -c "CREATE EXTENSION IF NOT EXISTS vector SCHEMA extensions"
+#     psql $DB_URL -f roles.sql    # errors on managed Supabase — roles already exist
 #     psql $DB_URL -f schema.sql
-#     psql $DB_URL -f data.sql
+#     psql $DB_URL -f data.sql     # ignore "permission denied" for auth/storage tables
 #
 # ── Customization ────────────────────────────────────────────────────────────
 #
