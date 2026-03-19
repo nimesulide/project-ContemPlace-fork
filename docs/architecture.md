@@ -64,13 +64,19 @@ Telegram sends a webhook POST for every message. The Worker must respond quickly
  │  A. In parallel:                │
  │     • embed raw text            │
  │     • fetch capture voice       │
+ │     • fetch recent fragments    │
+ │       (last N within time       │
+ │        window, titles+tags)     │
  │                                 │
  │  B. Find related notes          │
  │     (match_notes RPC, top 5)    │
+ │     Deduplicate recent against  │
+ │     related (by ID)             │
  │                                 │
  │  C. Call capture LLM            │
  │     (system frame + voice       │
- │      + raw input + related      │
+ │      + raw input + recent       │
+ │      fragments + related        │
  │      notes + today's date)      │
  │                                 │
  │  D. Parse + validate response   │
@@ -206,7 +212,7 @@ The LLM prompt is split into two parts that live in different places:
 
 This split exists because structural changes (adding a new field, a new enum value) require code changes anyway, but stylistic tuning (shorter titles, different tone) should be instant. Any capture interface — Telegram, a future MCP tool, a CLI — fetches the same capture voice from the same table, ensuring consistent note style regardless of entry point.
 
-The user message, related notes, and today's date are injected as the user turn. Related notes are provided so the LLM can create typed links; the date is provided so it can resolve relative time references ("yesterday", "next week").
+The user message includes three context sections: recent fragments (temporal context — titles and tags only, explicitly labeled as potentially unrelated), related notes (semantic matches — titles and bodies, for linking decisions), and today's date (for relative time references). Recent fragments are deduplicated against related notes by ID to avoid showing the same note in both sections. The recent fragments section is omitted when empty (no captures within the time window).
 
 ## Error handling
 

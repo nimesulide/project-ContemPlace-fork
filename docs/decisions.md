@@ -1194,3 +1194,15 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 **Why:** Lived experience across multiple agent sessions showed that every agent connecting to ContemPlace starts blind — they do not read tool descriptions unprompted. They must be explicitly told to read them. This rules out the hope that well-written tool descriptions could serve as a lightweight training mechanism, and confirms that #107's explicit `get_training` tool (or equivalent) is necessary. A secondary proposal — storing orientation instructions as regular notes retrievable via search ("check my notes on how to use ContemPlace") — provides a fallback path that works without a dedicated tool.
 
 **Source:** Captured fragment f88c7fcc (2026-03-19, Telegram). Analysis and design implications documented in #107 comment.
+
+## Recent fragments: hybrid time-bounded count, not pure count (2026-03-19)
+
+**Decision:** The recent fragments context for capture should use a hybrid approach — last N fragments within a time window — not a pure count-based fetch.
+
+**Why:** A pure count-based approach (last 5 fragments regardless of age) returns stale context when the user hasn't captured recently. If the last capture was 72 hours ago, those 5 fragments share no session context with the current input and are contextually meaningless. The value of temporal context is precisely its temporality — it represents what the user is thinking about *right now*, in this capture session. Stale fragments aren't temporal context; they're just old notes.
+
+The hybrid approach fetches the last N fragments that fall within a configurable time window (minimum ~5 minutes to catch burst captures, maximum ~1 day to cover a working session). Outside the window, the section is empty — which is the correct answer. "No recent context" is better than "irrelevant old context," especially given the tag bleed risk (#151 interaction).
+
+**Tradeoff:** Slightly more complex query and configuration (count + window vs. just count). But the alternative — pure count — is simpler at the cost of being wrong in the common case where sessions are separated by hours or days.
+
+**Source:** PR #191 review. The initial implementation used pure count; rework pending.
