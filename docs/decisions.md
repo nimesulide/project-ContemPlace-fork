@@ -1186,3 +1186,11 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 **Why:** Live exploration of the 186-note corpus revealed that semantically related notes with shared tags but different embedding contexts (e.g., "Lightroom backup" at 0.32 cosine vs. "device loss contingency" at 0.33 cosine vs. "ContemPlace backup" at 0.45 cosine — all sharing the `backup` tag) fall below the cosine floor and remain unclustered. Tag Jaccard would boost these edges above the clustering threshold. The #152 experiment showed only 5.4% of note pairs share any tag, so the signal is sparse but precisely targeted at the gap cosine-only misses. Links reinforce existing structure rather than bridging gaps; entities aren't populated yet (#125).
 
 **Source:** Live cluster exploration during #157 verification. Backup notes (Lightroom, device loss, ContemPlace) as concrete example.
+
+## Agent onboarding must be explicit — tool descriptions alone don't work (2026-03-19)
+
+**Decision:** Implicit onboarding via MCP tool descriptions is insufficient. Agents need an explicit training step. This confirms the direction in the "MCP agent training pattern" ADR (2026-03-13) with field evidence.
+
+**Why:** Lived experience across multiple agent sessions showed that every agent connecting to ContemPlace starts blind — they do not read tool descriptions unprompted. They must be explicitly told to read them. This rules out the hope that well-written tool descriptions could serve as a lightweight training mechanism, and confirms that #107's explicit `get_training` tool (or equivalent) is necessary. A secondary proposal — storing orientation instructions as regular notes retrievable via search ("check my notes on how to use ContemPlace") — provides a fallback path that works without a dedicated tool.
+
+**Source:** Captured fragment f88c7fcc (2026-03-19, Telegram). Analysis and design implications documented in #107 comment.
