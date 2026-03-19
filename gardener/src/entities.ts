@@ -14,18 +14,20 @@ import { VALID_ENTITY_TYPES } from './types';
 function buildExtractionPrompt(
   existingEntities: Array<{ name: string; type: string }>,
 ): string {
-  let prompt = `You are an entity extraction agent. Given a note's title, body, and tags, extract all proper nouns — named people, places, tools/software/hardware, and projects/initiatives.
+  let prompt = `You are an entity extraction agent. Given a note's title, body, and tags, extract proper nouns — specific named things, not generic common nouns.
 
 Rules:
 - Only extract entities that are explicitly named in the text
-- Do not extract generic concepts, abstract ideas, or common nouns
+- Only extract proper nouns: brand names, product names, personal names, named places, named projects
+- Do NOT extract generic materials (wood, plywood, veneer), common tools (laser cutter, drill press, soldering iron), generic concepts, or common nouns
+- The test: would you capitalize it in running prose? If not, it's probably not an entity.
 - Use the canonical/full form of the name when you can infer it from context
 - Classify each entity into exactly one type: person, place, tool, project
 
 Type definitions:
 - person: Named individuals (e.g., "Marshall Rosenberg", "Nicolas Bras")
-- place: Named locations (e.g., "Budapest", "Fablab")
-- tool: Named software, hardware, instruments, materials with brand names (e.g., "Shapr3D", "Daisy Seed", "cimbalom")
+- place: Named locations (e.g., "Budapest", "Fablab Budapest")
+- tool: Named/branded software, hardware, instruments, or products (e.g., "Shapr3D", "Daisy Seed", "IKEA Tertial"). NOT generic tools or materials.
 - project: Named initiatives or systems being built (e.g., "ContemPlace")
 
 Return valid JSON only — an array of objects. No text outside the JSON.

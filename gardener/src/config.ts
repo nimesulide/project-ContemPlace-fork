@@ -98,7 +98,7 @@ function parseThreshold(value: string | undefined, defaultValue: number, varName
 }
 
 function parseBatchSize(value: string | undefined): number {
-  const raw = value?.trim() || '50';
+  const raw = value?.trim() || '15';
   const n = parseInt(raw, 10);
   if (isNaN(n) || n < 0) {
     throw new Error(`Invalid GARDENER_ENTITY_BATCH_SIZE: "${value}" — must be a non-negative integer (0 = unlimited)`);

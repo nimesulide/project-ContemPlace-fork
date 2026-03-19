@@ -162,7 +162,7 @@ describe('loadConfig', () => {
     expect(config.entityConfig).not.toBeNull();
     expect(config.entityConfig!.openrouterApiKey).toBe('or-test-key');
     expect(config.entityConfig!.entityModel).toBe('anthropic/claude-haiku-4-5');
-    expect(config.entityConfig!.entityBatchSize).toBe(50);
+    expect(config.entityConfig!.entityBatchSize).toBe(15);
   });
 
   it('uses custom entity model when GARDENER_ENTITY_MODEL is set', () => {
