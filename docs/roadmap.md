@@ -190,7 +190,7 @@ Delivered:
 - **Orchestrator refactoring** — single `find_similar_pairs` call at `GARDENER_COSINE_FLOOR` (0.40), filtered >= `GARDENER_SIMILARITY_THRESHOLD` (0.65) for linker, full set to clustering
 - **Error isolation** — clustering failure logged but never kills the gardener run
 - **Gravity** — `size × avg(1 / (1 + age_days))` — recency-weighted, biases toward active clusters
-- **Labels** — top-3 most frequent tags, no LLM calls (gardener stays LLM-free)
+- **Labels** — top-3 most frequent tags, no LLM calls (labels stay LLM-free; entity extraction added later via #125)
 
 Live results (186 notes): 9 clusters at res 1.0 (modularity 0.60), 11 at 1.5, 12 at 2.0. Coherent labels: pen-plotting/printmaking/generative-art, laser-cutting/instrument-design, audio-plugin/plugdata/sound-soup, note-taking/knowledge-capture, contemplace/mcp/knowledge-management.
 
