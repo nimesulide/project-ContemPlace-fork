@@ -146,4 +146,50 @@ describe('loadConfig', () => {
   it('throws when HARD_DELETE_WINDOW_MINUTES is not a number', () => {
     expect(() => loadConfig(env({ HARD_DELETE_WINDOW_MINUTES: 'bad' }))).toThrow('HARD_DELETE_WINDOW_MINUTES');
   });
+
+  it('uses 5 as default recentFragmentsCount when RECENT_FRAGMENTS_COUNT is absent', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_COUNT: undefined }));
+    expect(config.recentFragmentsCount).toBe(5);
+  });
+
+  it('parses a valid RECENT_FRAGMENTS_COUNT integer', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_COUNT: '3' }));
+    expect(config.recentFragmentsCount).toBe(3);
+  });
+
+  it('accepts 0 as a valid RECENT_FRAGMENTS_COUNT (feature disabled)', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_COUNT: '0' }));
+    expect(config.recentFragmentsCount).toBe(0);
+  });
+
+  it('throws when RECENT_FRAGMENTS_COUNT is negative', () => {
+    expect(() => loadConfig(env({ RECENT_FRAGMENTS_COUNT: '-1' }))).toThrow('RECENT_FRAGMENTS_COUNT');
+  });
+
+  it('throws when RECENT_FRAGMENTS_COUNT is not a number', () => {
+    expect(() => loadConfig(env({ RECENT_FRAGMENTS_COUNT: 'bad' }))).toThrow('RECENT_FRAGMENTS_COUNT');
+  });
+
+  it('uses 60 as default recentFragmentsWindowMinutes when RECENT_FRAGMENTS_WINDOW_MINUTES is absent', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_WINDOW_MINUTES: undefined }));
+    expect(config.recentFragmentsWindowMinutes).toBe(60);
+  });
+
+  it('parses a valid RECENT_FRAGMENTS_WINDOW_MINUTES integer', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_WINDOW_MINUTES: '30' }));
+    expect(config.recentFragmentsWindowMinutes).toBe(30);
+  });
+
+  it('accepts 0 as a valid RECENT_FRAGMENTS_WINDOW_MINUTES (no time filter)', () => {
+    const config = loadConfig(env({ RECENT_FRAGMENTS_WINDOW_MINUTES: '0' }));
+    expect(config.recentFragmentsWindowMinutes).toBe(0);
+  });
+
+  it('throws when RECENT_FRAGMENTS_WINDOW_MINUTES is negative', () => {
+    expect(() => loadConfig(env({ RECENT_FRAGMENTS_WINDOW_MINUTES: '-1' }))).toThrow('RECENT_FRAGMENTS_WINDOW_MINUTES');
+  });
+
+  it('throws when RECENT_FRAGMENTS_WINDOW_MINUTES is not a number', () => {
+    expect(() => loadConfig(env({ RECENT_FRAGMENTS_WINDOW_MINUTES: 'bad' }))).toThrow('RECENT_FRAGMENTS_WINDOW_MINUTES');
+  });
 });

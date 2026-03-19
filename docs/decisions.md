@@ -1208,6 +1208,18 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 
 **Source:** #151 analysis, PR #192. Baseline metrics and analysis script at `scripts/tag-quality-analysis.ts`.
 
+## Recent fragments: hybrid time-bounded count, not pure count (2026-03-19)
+
+**Decision:** The recent fragments context for capture should use a hybrid approach — last N fragments within a time window — not a pure count-based fetch.
+
+**Why:** A pure count-based approach (last 5 fragments regardless of age) returns stale context when the user hasn't captured recently. If the last capture was 72 hours ago, those 5 fragments share no session context with the current input and are contextually meaningless. The value of temporal context is precisely its temporality — it represents what the user is thinking about *right now*, in this capture session. Stale fragments aren't temporal context; they're just old notes.
+
+The hybrid approach fetches the last N fragments that fall within a configurable time window (minimum ~5 minutes to catch burst captures, maximum ~1 day to cover a working session). Outside the window, the section is empty — which is the correct answer. "No recent context" is better than "irrelevant old context," especially given the tag bleed risk (#151 interaction).
+
+**Tradeoff:** Slightly more complex query and configuration (count + window vs. just count). But the alternative — pure count — is simpler at the cost of being wrong in the common case where sessions are separated by hours or days.
+
+**Source:** PR #191 review. The initial implementation used pure count; reworked to hybrid approach with `RECENT_FRAGMENTS_WINDOW_MINUTES` (default 60).
+
 ## Gardener entity extraction with 4-type taxonomy (2026-03-19)
 
 **Decision:** Add entity extraction as a third gardener phase using Haiku via OpenRouter. Extract proper nouns from `title + body + tags` (not `raw_input`), resolve corpus-wide into a canonical `entity_dictionary` table, and populate per-note `notes.entities`. Use a 4-type taxonomy: `person | place | tool | project`.

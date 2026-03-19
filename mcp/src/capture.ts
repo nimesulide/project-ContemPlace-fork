@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { Config } from './config';
-import type { CaptureResult, CaptureLink, MatchedNote, CaptureLinkType } from './types';
+import type { CaptureResult, CaptureLink, MatchedNote, RecentFragment, CaptureLinkType } from './types';
 
 // ── System frame: structural contract between LLM and parser ──────────────────
 // This part stays in code. It defines the JSON schema, field enums,
@@ -27,6 +27,19 @@ Types: \`contradicts | related\`
 Prefer fewer links over many. It is fine to link to zero notes.
 
 If the input is very short, do your best. Do not ask for clarification.
+
+## Recent fragments
+
+You may receive a list of the user's most recently captured fragments. These are **temporal neighbors, not semantic matches** — they may be about entirely different topics than the current input.
+
+Use recent fragments to:
+- **Prefer consistent tag vocabulary**, but ONLY when the current input is about the same concept as a recent fragment. If a recent fragment uses \`pen-plotting\` for a concept and the current input is also about pen plotting, use the same tag phrasing. If the current input is about coffee, ignore pen-plotting tags entirely.
+- **Improve voice correction.** Domain terms appearing in recent fragments are likely to recur in the same session.
+
+Do NOT:
+- Force links to recent fragments unless the semantic connection is independently clear.
+- Import tags from recent fragments that don't match the current input's subject matter.
+- Assume recent fragments are related to the current input — temporal proximity is not semantic similarity.
 
 **Body rule**: if the input contains questions, preserve them as questions in the body. Do not answer them, synthesize related notes into an answer, or reframe them as statements. The body captures what the user said, not what the system thinks the answer is. Related notes are provided for linking context only — never fold their content into the body.
 
@@ -59,9 +72,15 @@ export async function runCaptureAgent(
   text: string,
   relatedNotes: MatchedNote[],
   captureVoice: string,
+  recentFragments: RecentFragment[] = [],
 ): Promise<CaptureResult> {
   const today = new Date().toISOString().split('T')[0];
   const systemPrompt = buildSystemPrompt(captureVoice);
+
+  const recentSection = recentFragments.length > 0
+    ? '\n\nRecent fragments (for context, not linking targets):\n' +
+      recentFragments.map(r => `- "${r.title}" [${r.tags.join(', ')}]`).join('\n')
+    : '';
 
   const relatedSection = relatedNotes.length > 0
     ? '\n\nRelated notes for context:\n' +
@@ -71,7 +90,7 @@ export async function runCaptureAgent(
       }).join('\n\n')
     : '';
 
-  const userMessage = `Today's date: ${today}\n\nCapture this:\n${text}${relatedSection}`;
+  const userMessage = `Today's date: ${today}\n\nCapture this:\n${text}${recentSection}${relatedSection}`;
 
   const completion = await client.chat.completions.create({
     model: config.captureModel,
