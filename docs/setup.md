@@ -65,7 +65,7 @@ supabase link --project-ref YOUR_PROJECT_REF -p YOUR_DB_PASSWORD
 supabase db push --linked --yes
 ```
 
-The migrations create 5 tables, RLS policies, RPC functions (`match_notes`, `find_similar_pairs`), HNSW vector indexes, and seed the default capture voice profile.
+The migrations create 7 tables, RLS policies, RPC functions (`match_notes`, `find_similar_pairs`), HNSW vector indexes, and seed the default capture voice profile.
 
 ## 5. Deploy the MCP Worker
 
@@ -252,6 +252,9 @@ The gardener runs nightly at 02:00 UTC, creating similarity links between notes 
 wrangler secret put SUPABASE_URL -c gardener/wrangler.toml
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY -c gardener/wrangler.toml
 
+# Optional — enables entity extraction (proper noun tracking):
+wrangler secret put OPENROUTER_API_KEY -c gardener/wrangler.toml
+
 # Optional — enables Telegram alerts on failure:
 wrangler secret put TELEGRAM_BOT_TOKEN -c gardener/wrangler.toml
 wrangler secret put TELEGRAM_ALERT_CHAT_ID -c gardener/wrangler.toml
@@ -278,8 +281,10 @@ curl -X POST "https://contemplace-gardener.<YOUR_SUBDOMAIN>.workers.dev/trigger"
 | `GARDENER_SIMILARITY_THRESHOLD` | Cosine similarity gate for `is-similar-to` links (augmented-vs-augmented) |
 | `GARDENER_COSINE_FLOOR` | Minimum similarity for the all-pairs query — gates both linking candidates and graph construction for clustering |
 | `GARDENER_CLUSTER_RESOLUTIONS` | Comma-separated Louvain resolution values (e.g. `1.0,1.5,2.0`). Higher = more granular clusters |
+| `GARDENER_ENTITY_MODEL` | LLM model for entity extraction (default `anthropic/claude-haiku-4-5`). Only used when `OPENROUTER_API_KEY` is set. |
+| `GARDENER_ENTITY_BATCH_SIZE` | Max notes to extract entities from per gardener run (default `15`, `0` = unlimited). Constrained by CF Workers' 50-subrequest-per-invocation limit. |
 
-Deployed values in `gardener/wrangler.toml` `[vars]`. Code defaults in `gardener/src/config.ts`.
+Deployed values in `gardener/wrangler.toml` `[vars]`. Code defaults in `gardener/src/config.ts`. Entity extraction is entirely optional — without `OPENROUTER_API_KEY`, the gardener runs similarity linking and clustering only.
 
 ## 8. Configure automated backups (optional)
 

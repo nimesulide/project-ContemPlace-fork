@@ -1207,3 +1207,15 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 - If #123 (recent fragments as context) is implemented, temporally proximate but topically unrelated fragments could introduce irrelevant tags into the related-notes pool. The tag reuse instruction assumes related notes are topically relevant — that assumption must be preserved or the instruction qualified per context source.
 
 **Source:** #151 analysis, PR #192. Baseline metrics and analysis script at `scripts/tag-quality-analysis.ts`.
+
+## Gardener entity extraction with 4-type taxonomy (2026-03-19)
+
+**Decision:** Add entity extraction as a third gardener phase using Haiku via OpenRouter. Extract proper nouns from `title + body + tags` (not `raw_input`), resolve corpus-wide into a canonical `entity_dictionary` table, and populate per-note `notes.entities`. Use a 4-type taxonomy: `person | place | tool | project`.
+
+**Why:** The original capture-time entity extraction (#113) was dropped because per-note extraction without corpus context produced inconsistent classifications — `concept` was a catch-all that overlapped with tags (#71), and the same entity got different types across notes. Gardener-time extraction with corpus-wide context solves both problems: the resolution step sees all mentions across all notes and can canonicalize names ("Rosenberg" → "Marshall Rosenberg") and enforce type consistency. `concept` was dropped entirely — it overlapped with tags and was the primary source of type disagreements.
+
+**Trade-off:** This reverses the v4.0.0 decision to make the gardener LLM-free. The gardener now optionally depends on OpenRouter (only when `OPENROUTER_API_KEY` is set). The entity phase is error-isolated — if OpenRouter is down, similarity linking and clustering still complete normally.
+
+**Subrequest constraint:** CF Workers has a 50-subrequest-per-invocation limit. The entity phase uses `GARDENER_ENTITY_BATCH_SIZE` (default 15) to stay within budget: 9 fixed DB calls + 2×N (LLM + note update) = 39 subrequests at N=15.
+
+**Source:** #125. Specialist review 2026-03-19. PR #193.

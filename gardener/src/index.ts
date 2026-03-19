@@ -1,10 +1,12 @@
-import { createSupabaseClient, deleteGardenerSimilarityLinks, fetchNotesForSimilarity, findSimilarPairs, insertSimilarityLinks, logEnrichments, deleteAllClusters, insertClusters } from './db';
+import { createSupabaseClient, deleteGardenerSimilarityLinks, fetchNotesForSimilarity, findSimilarPairs, insertSimilarityLinks, logEnrichments, deleteAllClusters, insertClusters, fetchNotesForEntityExtraction, fetchAllRawExtractions, fetchNoteCreatedAts, logEntityExtractions, rebuildEntityDictionary, batchUpdateNoteEntities, fetchEntityDictionary } from './db';
 import { loadConfig } from './config';
 import { buildContext } from './similarity';
 import { runClustering, type ClusteringResult } from './clustering';
+import { extractEntitiesFromNote, resolveEntities, mapNotesToCanonicalEntities } from './entities';
+import { createOpenAIClient } from './ai';
 import { sendAlert } from './alert';
 import { validateTriggerAuth } from './auth';
-import type { Env, NoteForSimilarity, SimilarityLink } from './types';
+import type { Env, NoteForSimilarity, SimilarityLink, RawExtraction } from './types';
 
 export interface GardenerRunResult {
   event: 'gardener_run_complete';
@@ -19,6 +21,12 @@ export interface GardenerRunResult {
     clusters_created: number;
     resolutions_run: number;
     clusters_deleted: number;
+    error: string | null;
+  };
+  entities: {
+    notes_extracted: number;
+    dictionary_entries: number;
+    notes_updated: number;
     error: string | null;
   };
   duration_ms: number;
@@ -126,6 +134,90 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
     }));
   }
 
+  // 6. Entity extraction (failure must not kill the gardener run)
+  let entitiesReport: GardenerRunResult['entities'] = {
+    notes_extracted: 0,
+    dictionary_entries: 0,
+    notes_updated: 0,
+    error: null,
+  };
+
+  // Subrequest budget: CF Workers limit is 50 per invocation.
+  // Similarity + clustering use ~7-9. Entity extraction gets the rest.
+  // Per-run cost: ~9 fixed DB calls + N LLM calls + N note updates = 9 + 2N.
+  // Default batch size 15 → 9 + 30 = 39 subrequests. Under 50 with margin.
+  if (config.entityConfig) {
+    try {
+      const entityConfig = config.entityConfig;
+      const aiClient = createOpenAIClient(entityConfig);
+
+      // 6a. Fetch notes needing extraction (incremental) — 2 DB calls
+      const notesToExtract = await fetchNotesForEntityExtraction(db, entityConfig.entityBatchSize);
+
+      const newExtractions: RawExtraction[] = [];
+      if (notesToExtract.length > 0) {
+        // 6b. Fetch existing dictionary for type consistency — 1 DB call
+        const existingEntities = await fetchEntityDictionary(db);
+
+        // 6c. Extract entities from new notes — N LLM calls
+        for (const note of notesToExtract) {
+          try {
+            const entities = await extractEntitiesFromNote(aiClient, entityConfig, note, existingEntities);
+            newExtractions.push({ noteId: note.id, entities });
+          } catch (extractErr) {
+            console.warn(JSON.stringify({
+              event: 'entity_extraction_note_error',
+              noteId: note.id,
+              error: String(extractErr),
+            }));
+          }
+        }
+
+        // 6d. Log raw extractions to enrichment_log — 1 DB call
+        if (newExtractions.length > 0) {
+          await logEntityExtractions(db, newExtractions, entityConfig.entityModel);
+        }
+      }
+
+      // 6e. Resolve + rebuild dictionary only when there are new extractions
+      if (newExtractions.length > 0) {
+        // Fetch ALL raw extractions for full resolution — 2 DB calls
+        const allExtractions = await fetchAllRawExtractions(db);
+        const noteCreatedAts = await fetchNoteCreatedAts(db); // 1 DB call
+        const dictionary = resolveEntities(allExtractions, noteCreatedAts);
+
+        // Clean-slate rebuild dictionary — 2 DB calls (delete + insert)
+        const { inserted } = await rebuildEntityDictionary(db, dictionary);
+
+        // Only update notes.entities for newly extracted notes — N DB calls
+        // Full corpus reconciliation happens gradually as each batch is processed.
+        const noteEntityMap = mapNotesToCanonicalEntities(newExtractions, dictionary);
+        const notesUpdated = await batchUpdateNoteEntities(db, noteEntityMap);
+
+        entitiesReport = {
+          notes_extracted: newExtractions.length,
+          dictionary_entries: inserted,
+          notes_updated: notesUpdated,
+          error: null,
+        };
+      }
+
+      console.log(JSON.stringify({
+        event: 'entity_extraction_complete',
+        notes_extracted: entitiesReport.notes_extracted,
+        dictionary_entries: entitiesReport.dictionary_entries,
+        notes_updated: entitiesReport.notes_updated,
+      }));
+    } catch (err) {
+      const errorMsg = String(err);
+      entitiesReport.error = errorMsg;
+      console.error(JSON.stringify({
+        event: 'entity_extraction_failed',
+        error: errorMsg,
+      }));
+    }
+  }
+
   const result: GardenerRunResult = {
     event: 'gardener_run_complete',
     similarity: {
@@ -136,6 +228,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
       errors,
     },
     clustering: clusteringReport,
+    entities: entitiesReport,
     duration_ms: Date.now() - startTime,
   };
 
