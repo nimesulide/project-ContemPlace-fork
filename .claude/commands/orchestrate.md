@@ -191,7 +191,7 @@ git branch -d <branch-name>                             # delete local branch
 2. **Match each task to a custom command** — check `.claude/commands/` for a workflow that fits. Default to `/work-on-issue <number>` for any issue-based implementation work.
 3. **Create worktrees and workspaces** for parallel tasks
 4. **Dispatch** — send the custom command (or raw prompt if none fits) to each workspace
-5. **Monitor** periodically and report status when asked
+5. **Monitor** proactively — check workspaces every 30-60s, approve standard permissions, surface problems immediately
 6. **Handle problems** — if a workspace is stuck on permissions, tell the user. If an agent made a mistake, you can send follow-up instructions to that workspace.
 7. **Clean up** when tasks complete — merge, remove worktrees, delete branches
 

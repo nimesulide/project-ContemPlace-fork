@@ -1194,3 +1194,13 @@ A supplementary mechanism difference: capture-time matching compares raw text ag
 **Why:** Lived experience across multiple agent sessions showed that every agent connecting to ContemPlace starts blind — they do not read tool descriptions unprompted. They must be explicitly told to read them. This rules out the hope that well-written tool descriptions could serve as a lightweight training mechanism, and confirms that #107's explicit `get_training` tool (or equivalent) is necessary. A secondary proposal — storing orientation instructions as regular notes retrievable via search ("check my notes on how to use ContemPlace") — provides a fallback path that works without a dedicated tool.
 
 **Source:** Captured fragment f88c7fcc (2026-03-19, Telegram). Analysis and design implications documented in #107 comment.
+
+## Custom commands: self-contained workflows, orchestrator as triage (2026-03-19)
+
+**Decision:** Custom commands stay as self-contained, monolithic workflows (one command = one complete process). Composability lives in the orchestrator, which classifies incoming work and routes it to the right command. Commands are not split into composable phases.
+
+**Why:** Research into Claude Code's architecture (official docs, Anthropic's "Building Effective Agents" guide, community patterns) confirmed there is no native command chaining mechanism — each command runs inline in the main conversation. Splitting phases into separate commands would require the user to manually invoke each step in sequence, contradicting the preference for fast, non-interactive workflows. The 500-line SKILL.md ceiling and 2% context budget for descriptions are practical limits that the current commands (all under 210 lines) comfortably meet. The hard-won calibration notes at the bottom of each command would lose their co-located context if split across files.
+
+**Alternatives considered:** (a) One smart command that adapts based on context — rejected because commands have genuinely different workflows; merging them would produce a 500+ line prompt where most content is irrelevant to any invocation. (b) Many small composable commands — rejected because no native chaining exists and manual invocation adds overhead. (c) Subagents as composability layer — viable future path but the current cmux + worktree pattern works well and doesn't need replacement.
+
+**Source:** Orchestration session 2026-03-19. Research agent surveyed Claude Code docs, Anthropic's agent design guide, prompt chaining literature, and community patterns. Decision encoded in `/orchestrate` (triage role), all commands (strengthened), and memory (`project_command_design_philosophy.md`).
