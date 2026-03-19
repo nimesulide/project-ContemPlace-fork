@@ -133,6 +133,7 @@ scripts/
   cluster-experiment.ts     Clustering experiment — weighted graph + Louvain against live corpus (read-only)
   threshold-analysis.ts     Threshold analysis — pairwise distribution, gardener sweep, source stratification (read-only)
   measure-tag-consistency.ts  Tag consistency measurement — burst detection, reuse rate, synonym introductions, pre/post comparison (read-only)
+  retag-corpus.ts           One-time corpus re-tag — re-runs capture LLM chronologically, updates tags + embeddings (dry-run default, --write to commit)
 supabase/
   migrations/     Schema migrations (v4 is current)
 tests/
