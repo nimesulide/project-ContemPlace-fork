@@ -95,7 +95,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'list_clusters',
-    description: 'List thematic clusters detected by the gardener. Clusters group notes by semantic similarity — call with no parameters to see the landscape of accumulated thinking. The response includes available_resolutions so you know which values to request. Each cluster includes a sample of note titles (default 5) — use search_notes with tag filters or get_note to explore further.',
+    description: 'List thematic clusters detected by the gardener. Clusters group notes by semantic similarity — call with no parameters to see the landscape of accumulated thinking. Results are ordered by gravity (size × recency) — high-gravity clusters are where recent attention is concentrated. Try comparing resolutions (e.g., default 1.0 then 1.5) to see which clusters split, revealing internal conceptual structure. The response includes available_resolutions so you know which values to request. Each cluster includes a sample of note titles (default 5) — use search_notes with tag filters or get_note to explore further.',
     inputSchema: {
       type: 'object',
       properties: {

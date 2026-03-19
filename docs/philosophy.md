@@ -55,6 +55,8 @@ Fragments cluster around themes over time. The gardener detects these clusters b
 
 This is how ideas evolve in the system. Not by revising old notes, but by accumulating new fragments that cluster, link, and eventually coalesce into themes you can browse. The primary use case is undirected exploration — seeing what's on your mind, tracing how ideas connect across domains, discovering that instrument-making and laser-cutting share a thread you hadn't noticed. Whether narrative MOC-like synthesis is needed on top of this is an open question (#120) that depends on whether cluster exploration alone satisfies the browsing use case.
 
+The interaction paradigm is three-way: the tool returns navigable structure, the agent synthesizes insight from that structure using domain reasoning and user context, and the human confirms, extends, or redirects. Clustering doesn't return insights — it returns a map that an agent can read. The agent adds the meaning. This applies to all retrieval tools, but clustering makes it most visible because the agent's synthesis layer (noticing what split, what held, what's absent) is where the value actually lives.
+
 *Source: #116 (2026-03-14), reframed in #144 design session (2026-03-17). Literature basis: Milo's MOCs (navigational superstructure), Ahrens (look into the slip-box to see where ideas cluster). Algorithm choice informed by literature review (#148).*
 
 ### 5. Maturity is computed, not assigned

@@ -137,6 +137,22 @@ The unclustered notes matter too. A handful of fragments sitting outside every c
 
 **What gravity tells you:** A cluster with high gravity is where your recent attention is. A cluster with low gravity is an old thread — still coherent, still there, just not where you've been lately. This isn't a quality judgment. It's a recency signal. Old clusters with dormant gravity are often the most interesting to revisit.
 
+### The clustering workflow
+
+A clustering session follows a natural funnel — each step narrows focus based on what the previous step revealed.
+
+1. **Landscape.** Call `list_clusters` with no parameters. The agent reads the gravity-ordered map and can say "here are the themes your brain has been working on" before reading a single note body. This is the cold-start entry point for any reflection session.
+
+2. **Resolution comparison.** Call `list_clusters` again at a different resolution (e.g., 1.5). The agent narrates what split, what held, and what newly surfaced. This is a high-value single move — low effort, often the most structurally informative step. A cluster that splits reveals internal conceptual diversity; one that holds at higher resolution is genuinely coherent.
+
+3. **Title scan.** For an interesting cluster, increase `notes_per_cluster` to see all its titles. The agent reads titles for philosophical anchors, conceptual junctions, and surprising members.
+
+4. **Graph walk.** From a well-connected or philosophically anchored note, call `get_related` to explore the link topology. `get_related` is a second-stage tool — most useful once you've identified a specific note to anchor from, not as a starting point.
+
+5. **Boundary search.** For any cluster, the agent can ask "what would this cluster contain if the orientation were different?" and search for those terms at low threshold. Finding nothing is informative — it reveals the framing and assumptions behind the cluster. The absence of expected concepts often says more about the user's orientation than the presence of captured ones.
+
+Not every session goes through all five steps. Landscape orientation alone is often enough for a check-in. The funnel is there when you want to go deeper.
+
 ---
 
 ## Backups: what protects your data
