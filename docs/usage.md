@@ -123,7 +123,13 @@ Second, it runs cluster detection. Using the same similarity data, the gardener 
 
 Third, if entity extraction is enabled, it identifies proper nouns (people, places, tools, projects) across new notes and maintains a corpus-wide entity dictionary. This enriches the structured data agents see when retrieving notes.
 
-You don't see any of this happen. You don't interact with the gardener. The next time you or an agent explores your knowledge base, the graph is richer than what you explicitly connected and the clusters reveal the shape of your thinking.
+You don't see any of this happen by default. The next time you or an agent explores your knowledge base, the graph is richer than what you explicitly connected and the clusters reveal the shape of your thinking.
+
+### On-demand gardening
+
+You don't have to wait for the nightly cron. After a burst of captures — say, a dense brainstorming session or a batch import — call `trigger_gardening` from any MCP-connected agent. The full pipeline runs synchronously (~30 seconds) and returns the results: how many similarity links were created, how many clusters formed, how many entities were extracted. Then immediately call `list_clusters` or `get_related` to see the updated graph.
+
+There's a 5-minute cooldown between triggers to prevent accidental spam. If you trigger too soon, the tool tells you how long to wait.
 
 This is the difference between a note store and a knowledge graph. The gardener turns your accumulation into something you can navigate.
 

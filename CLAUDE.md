@@ -62,7 +62,7 @@ mcp/
     index.ts         # OAuthProvider setup, CaptureService entrypoint (capture + undoLatest), McpApiHandler, resolveExternalToken bypass
     pipeline.ts      # Single source of truth for capture logic — called by Service Binding RPC + capture_note tool
     oauth.ts         # Consent page HTML renderer + AuthHandler (GET/POST /authorize)
-    tools.ts         # Tool definitions + handlers (search_notes, get_note, list_recent, get_related, capture_note, remove_note, list_clusters)
+    tools.ts         # Tool definitions + handlers (search_notes, get_note, list_recent, get_related, capture_note, remove_note, list_clusters, trigger_gardening)
     auth.ts          # Bearer token auth (validateAuth, isStaticTokenRequest, timingSafeEqual — constant-time comparison)
     config.ts        # Config loading with secret validation
     db.ts            # DB read/write functions (fetchNote, listRecentNotes, searchNotes, insertNote, …)
@@ -73,7 +73,7 @@ gardener/
   wrangler.toml      # Gardener Worker config (name: contemplace-gardener, cron: 0 2 * * *)
   tsconfig.json
   src/
-    index.ts         # scheduled() + fetch() exports — orchestrates similarity linking, clustering, and entity extraction
+    index.ts         # scheduled() + fetch() + GardenerService entrypoint — orchestrates similarity linking, clustering, and entity extraction
     clustering.ts    # Louvain community detection via Graphology (multi-resolution, gravity, tag labels)
     entities.ts      # Entity extraction prompt, response parsing, corpus-wide dedup/resolution
     ai.ts            # OpenRouter client for entity extraction (optional — only when OPENROUTER_API_KEY set)

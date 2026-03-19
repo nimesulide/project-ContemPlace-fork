@@ -22,7 +22,7 @@ OpenRouter sits between the Workers and all AI models. This adds a hop but means
 |---|---|---|---|
 | **Telegram capture** | `contemplace` | Receives Telegram webhooks, delegates capture to MCP Worker via Service Binding, formats HTML reply | Telegram webhook POST |
 | **MCP server** | `mcp-contemplace` | MCP tools via JSON-RPC 2.0 over HTTP. Hosts `CaptureService` entrypoint for Service Binding RPC (`capture()` + `undoLatest()`). | HTTP POST /mcp, Service Binding RPC |
-| **Gardener** | `contemplace-gardener` | Nightly enrichment: similarity linking + cluster detection | Cron (02:00 UTC) or POST /trigger |
+| **Gardener** | `contemplace-gardener` | Enrichment: similarity linking + cluster detection + entity extraction. Hosts `GardenerService` entrypoint for on-demand triggering via Service Binding RPC. | Cron (02:00 UTC), POST /trigger, Service Binding RPC |
 
 Each Worker is independently deployed with its own `wrangler.toml` and secrets. They share the same Supabase database and use the same `openai` SDK pattern for OpenRouter calls.
 
@@ -118,6 +118,7 @@ The MCP Worker implements JSON-RPC 2.0 over HTTP with dual authentication: OAuth
 | `capture_note` | Full capture pipeline (same logic as Telegram, synchronous) |
 | `remove_note` | Remove a note — permanent delete if recent (< grace window), soft archive if older |
 | `list_clusters` | Thematic clusters from the gardener. `resolution` controls granularity, `notes_per_cluster` limits title sample (default 5). Response includes `available_resolutions` from DB, `hub_notes` (top 1–2 by intra-cluster link count) per cluster. Gravity-ordered. |
+| `trigger_gardening` | Trigger the full gardening pipeline on demand via Service Binding RPC. Returns the run summary. 5-minute cooldown. |
 
 Tool descriptions in `TOOL_DEFINITIONS` (mcp/src/tools.ts) include behavioral guidance for connecting agents — what kind of input to pass, how to interpret results, when to use each tool. The `capture_note` description explicitly instructs agents to pass user's raw words without cleaning up or pre-structuring. These descriptions are the only guidance a connecting agent receives about how to use ContemPlace.
 

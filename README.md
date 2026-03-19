@@ -46,6 +46,7 @@ The MCP server is the primary interface, usable by any MCP-capable agent:
 | `list_clusters` | See the shape of your thinking. Thematic clusters detected by the gardener — resolution controls zoom level, hub notes surface conceptual anchors. |
 | `capture_note` | Pass raw words — the server runs the full capture pipeline. Do not pre-structure. |
 | `remove_note` | Remove a note. Recent notes (< grace window) are permanently deleted; older notes are soft-archived and recoverable. |
+| `trigger_gardening` | Trigger the gardening pipeline on demand — recomputes similarity links, clusters, and entities. 5-minute cooldown. |
 
 **Auth:** OAuth 2.1 (Authorization Code + PKCE) for browser clients like Claude.ai, or a static Bearer token for CLI/SDK callers like Claude Code. Both paths are permanent.
 
