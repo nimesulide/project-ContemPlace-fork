@@ -114,7 +114,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'trigger_gardening',
-    description: 'Trigger the gardening pipeline on demand — recomputes similarity links, clusters, and extracts entities from new notes. Takes ~30 seconds at current corpus size. Use after a burst of captures to see updated links and clusters immediately instead of waiting for the nightly cron. Has a 5-minute cooldown between triggers to prevent accidental spam. Returns the full run summary with counts of links created, clusters computed, and entities extracted.',
+    description: 'Refresh the knowledge graph now. The gardener is the background process that discovers connections between notes — it finds similarity links between fragments, groups them into thematic clusters, and extracts named entities (people, places, tools, projects). Normally runs nightly at 2am UTC. Call this after a burst of captures so you can immediately explore updated links (via get_related) and clusters (via list_clusters) instead of waiting overnight. Takes ~30 seconds. Returns the full run summary: similarity links created, clusters computed, entities extracted, duration. Has a 5-minute cooldown between triggers.',
     inputSchema: {
       type: 'object',
       properties: {},
