@@ -61,6 +61,8 @@ For each command that was run during the session:
 
 For commands that weren't run but are affected by session decisions (e.g., a schema change that affects `/audit-captures`), propose updates for those too.
 
+**Command coverage check:** Were there moments in this session where a custom command *should* have been used but wasn't? Did the user or orchestrator write a raw prompt for a task that follows a repeatable pattern? If so, propose either a new command or an expansion of an existing one. The bar for a new command: "Would this pattern recur at least 2-3 more times?" If yes, formalize it. If it's a one-off, skip.
+
 #### 3b. Feedback memories
 
 For each behavioral correction — something the user had to tell you that isn't a document issue but a pattern issue:
