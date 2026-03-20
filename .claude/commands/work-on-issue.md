@@ -31,7 +31,7 @@ This doesn't need to be heavy. For a clear bug fix, it's one line: "The problem 
 
 **If the hypothesis check reframes the problem**, the specialist reviews in Phase 3 work from the reframed version, not the original issue body. Note the reframing explicitly so the user can see what shifted.
 
-**Post findings to the issue.** After completing the hypothesis check, post a summary comment on the GitHub issue with the validated problem statement and any reframing. This creates a written trail — useful for the user, for future sessions, and for anyone reading the issue later.
+**Post findings to the issue — now, not later.** After completing the hypothesis check, post a structured comment on the GitHub issue with the validated problem statement, the evidence, and any reframing. Write it so a future reader arriving at this issue in two months can understand the reasoning without reading the conversation that produced it. This is not a summary to be expanded later — it's the real record. If the hypothesis check reframed the problem, explain why the original framing was wrong and what changed.
 
 **Privacy:** Issue comments on public repos must contain only aggregate metrics, structural observations, and technical analysis. Never include specific note titles, note bodies, raw_input content, tag names that reveal personal topics, or cluster labels derived from private data. When in doubt, omit.
 
@@ -68,7 +68,7 @@ If the hypothesis from Phase 2.5 can be validated with a controlled experiment b
 4. **Measure** — compare outputs against expectations and against any ground-truth baselines. Be specific: tag overlap, title quality, body fidelity, embedding similarity, link accuracy — whatever dimensions the hypothesis predicts.
 5. **Analyze** — does the data support the hypothesis? Partially? Not at all? What surprised you?
 6. **Clean up** — remove test data from the corpus if it doesn't belong there. The experiment should leave the system in its original state.
-7. **Post findings to the issue** — results, interpretation, and the decision: proceed to implementation, revise the hypothesis, or close as unnecessary. Apply the same privacy constraint — aggregate results and structural observations only.
+7. **Post findings to the issue immediately** — results, interpretation, and the decision: proceed to implementation, revise the hypothesis, or close as unnecessary. Write the comment as a lab notebook entry: what was tested, what the data showed, what it means. A future reader should be able to verify the reasoning from this comment alone. Apply the same privacy constraint — aggregate results and structural observations only.
 
 **If the experiment validates the hypothesis**, proceed to Phase 3 (specialist review) and Phase 4 (implementation plan) with the data in hand. The experiment results inform the specialist review — the agents now work from evidence, not speculation.
 
@@ -97,13 +97,15 @@ Scale the review to the size of the change:
 
 All agents receive: the **validated problem statement from Phase 2** (not just the raw issue body), relevant source code, and the project's hard constraints from CLAUDE.md. All return structured findings. All are told to do research only — no code writing.
 
-**Post findings to the issue.** After synthesizing the specialist review, post a summary comment on the GitHub issue with key findings, confirmed decisions, and identified risks. This creates a written trail for the user and for any future session that picks up this issue. Apply the same privacy constraint as Phase 2 — aggregate metrics and structural observations only, no private content.
+**Post findings to the issue — now, not later.** After synthesizing the specialist review, post a structured comment on the GitHub issue with key findings, confirmed decisions, identified risks, and any new concepts introduced (e.g., "system language," "body-based embedding"). Write it so a future reader can understand what was learned and what options were considered without access to the conversation. Apply the same privacy constraint as Phase 2 — aggregate metrics and structural observations only, no private content.
 
 ### Phase 3.5: Persist research findings
 
 For medium and large changes where specialist reviews were run: save the key findings, confirmed decisions, and identified risks to memory. This makes the research available to future sessions if implementation spans multiple conversations. Skip for small changes where no specialist review ran.
 
 ### Phase 4: Synthesize and present the plan
+
+**ADR first.** If the work involves a design decision (not just a mechanical change), draft the `docs/decisions.md` entry now — before presenting the implementation plan. The ADR captures *why* this approach was chosen, what alternatives were considered, and what trade-offs were accepted. Write it while the reasoning is active, not as cleanup after implementation. Present the draft ADR to the user as part of the plan review. This is the primary documentation moment — Phase 8's doc sweep is a consistency check, not the place where reasoning gets written down.
 
 Combine the review findings into a clear plan:
 - **Scope assessment** — If the implementation touches more than one Worker or more than ~8 files, evaluate whether splitting into multiple PRs would improve risk isolation, verification quality, or rollback safety. Look for natural seams (deployment boundaries, read/write splits, schema vs. logic). Present the split recommendation alongside the plan. For smaller changes, skip this — state "single PR, no split needed" and move on.
@@ -164,6 +166,7 @@ After merging, do the full housekeeping sweep:
 
 ### Calibration notes
 
+- **Document concurrently, not as cleanup.** Before moving from one phase to the next, check: "Could someone arriving at this issue in two months reconstruct what happened and why?" If the answer is no, write it now — the issue comment, the ADR entry, the finding. Documentation is a concurrent output of each phase, not a final sweep. Phase 8 exists to catch inconsistencies, not to be the primary documentation moment.
 - **Surface design decisions, don't absorb them.** Throughout every phase, distinguish between decisions you can derive from first principles (existing docs, code conventions, philosophy) and decisions that could reasonably go multiple ways. Derivable decisions — make them and move on. Genuine design decisions — present the options with your recommendation and wait for the user before proceeding. The user may have context you don't, may want to push back, or may want to ask clarifying questions. This applies in Phase 2 (hypothesis framing), Phase 2.75 (experiment design), Phase 3 (specialist review trade-offs), and Phase 4 (implementation plan). Don't overdo it — mechanical choices don't need approval. But any decision that shapes the product's behavior, architecture, or trust contract should have the user's consent.
 - **Design-only issues** (labeled `question`): Phase 2 is especially important — design questions are where wrong frames do the most damage. Phase 2.75 (experiment) and Phase 3 (specialist review) are the main outputs. Skip Phases 5-7.
 - **Experiment-driven issues**: When the issue's next step is "validate with data," Phase 2.75 is the core of the work. The experiment may be the entire deliverable — the issue might graduate from `question` to `enhancement` based on findings, or close if the hypothesis is invalidated. Not every issue needs implementation to make progress.
