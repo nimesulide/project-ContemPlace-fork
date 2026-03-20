@@ -64,6 +64,9 @@ logs/
 # Superpowers brainstorming sessions
 .superpowers/
 
+# Experiment data containing corpus content (private)
+scripts/hungarian-translations.json
+
 # MCP client configs (Phase 2 — contain API keys)
 claude_desktop_config.json
 *.mcp.json

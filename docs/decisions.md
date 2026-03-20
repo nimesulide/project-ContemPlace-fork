@@ -1242,4 +1242,55 @@ The hybrid approach fetches the last N fragments that fall within a configurable
 
 **Trade-off:** The two Workers are now deployment-coupled — the Gardener Worker must exist before the MCP Worker can deploy, because the `[[services]]` binding references it. This is acceptable since both Workers are always deployed together.
 
+## Multilingual capture: capture voice instruction + body-based embedding (2026-03-20)
+
+**Decision:** Handle multilingual input with two minimal changes: (1) add an "always produce English output" instruction to the capture voice, (2) change `buildEmbeddingInput` to use the English body instead of raw_input for the stored embedding. No separate translation step. No new LLM call. No schema change.
+
+**Architecture (unchanged pipeline, two config/code changes):**
+
+```
+raw_input (any language)
+  → embed(raw_input) → find related notes        ← cross-language penalty here, but 0.35 threshold compensates
+  → capture LLM(raw_input + related notes)        ← capture voice says "always English output"
+    → English title, body, tags, links            ← 92% success rate in experiment (was 50% without instruction)
+  → embed([Tags] + body) → store                  ← body is English → monolingual embedding space
+  → raw_input column = original language (sacred)
+```
+
+**Why this approach over a separate translation step:** Three experiments in #210 showed:
+
+1. **Experiment 1 (capture pairs, no instruction):** Tags/titles consistently English regardless of input. Body: 6/12 coin flip — the LLM translates sometimes but not reliably.
+2. **Experiment 2 (embedding analysis):** Cross-language penalty of 0.156 mean score delta for related-note retrieval. 17.7% of gardener connections lost when stored embedding uses Hungarian raw_input. Verdict: Hungarian raw_input in stored embeddings significantly degrades the knowledge graph.
+3. **Experiment 3 (capture voice instruction):** Adding "always produce English output" to the capture voice improved body translation from 6/12 (50%) to 11/12 (92%). The single failure was the shortest input in the set.
+
+The capture voice instruction alone solves the display consistency and full-text search problems. Switching `buildEmbeddingInput` from raw_input to body solves the stored embedding problem — body is now reliably English, so gardening and clustering operate in a monolingual space. The body-based embedding penalty vs raw_input is only -0.007 (negligible).
+
+**The remaining trade-offs are acceptable:**
+- **Capture-time related-note lookup** still embeds raw_input (any language) against stored English embeddings. The 0.35 match threshold is low enough to compensate for the cross-language penalty — experiment 3 showed 1-4 links per Hungarian capture, comparable to the English baseline.
+- **8% body translation failure rate** on very short inputs. The user sees the Telegram reply and can `/undo` if the body is in the wrong language. This is a visible safeguard, not a silent failure.
+- **Search queries** must be in the system language. Transparent cost — the system language is a user choice at setup time.
+- **Translation quality** depends on the capture LLM (Haiku). When it translates, quality is high — the experiment showed faithful preservation of meaning, tone, and specificity.
+
+**Why a system language:** A mixed-language corpus degrades every organizational layer — embeddings lose similarity across languages (0.156 penalty measured), full-text search assumes one language (`to_tsvector('english', ...)`), and gardening operates on stored embeddings that must be comparable. A single system language ensures all these layers work as designed. The user captures in any language they think in; the system normalizes to one. This is the same principle as storing structured output (title, body, tags) alongside raw_input — the structured version is optimized for the system's needs, the raw version preserves the user's.
+
+**Design principles (unchanged from initial framing):**
+- `raw_input` stays sacred — the user's original words in their original language, never modified.
+- Translation is structural interpretation — same category as titling and tagging.
+- System language is a user preference — not hardcoded to English. The capture voice instruction would say "always produce [target language] output."
+- Input correction (voice dictation errors and typos) is handled by the capture LLM on the original input, not on a pre-translated version.
+
+**What this solves:**
+1. Body language inconsistency (50% → 92%)
+2. Stored embedding cross-language penalty (body-based embedding is monolingual)
+3. Full-text search breakage (`content_tsv` built from English title + English body)
+
+**Implementation scope (minimal):**
+- `capture_profiles` table: add language instruction to capture voice (DB update, no deployment)
+- `mcp/src/pipeline.ts:43`: change `buildEmbeddingInput(rawInput, capture)` → `buildEmbeddingInput(capture.body, capture)` (one line)
+- Documentation: `architecture.md` (embedding source change), `capture-agent.md` (language handling), `CLAUDE.md` (hard constraint #9 update)
+
+**What this does NOT require:** No new LLM call, no schema migration, no new config vars, no new Worker, no pipeline restructuring. If the 92% success rate proves insufficient in production, a separate pre-translation step can be added later — the body-based embedding change is forward-compatible with that upgrade.
+
+**Source:** #210 experiments (2026-03-20). Three controlled experiments: 12-pair capture comparison, 12-sample embedding analysis script (`scripts/cross-language-experiment.ts`), 12-pair capture voice instruction test. Prior art: #57 (proposed same direction without data). Specialist reviews informed experiment design and thresholds. Full investigation trail with data tables and reasoning chain: [#210 investigation summary](https://github.com/freegyes/project-ContemPlace/issues/210#issuecomment-4098797044).
+
 **Source:** #100. PR #207. Error 1042 discovered during live deployment.

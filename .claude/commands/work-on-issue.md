@@ -45,9 +45,34 @@ Before proceeding to specialist review or implementation, explicitly state:
 
 This doesn't need to be heavy — for a clear bug fix, the hypothesis is "this fixes the bug" and verification is "the bug no longer reproduces." For features or design changes, the hypothesis prevents building infrastructure that can't be evaluated.
 
-**If verification requires real-world data**, create a GitHub issue (label: `test`) that defines the baseline measurement and the post-deployment comparison. The implementation can proceed while measurement runs independently — but the issue must exist so the hypothesis isn't forgotten.
+**Default: validate before building.** Before committing to a system-wide implementation, ask whether the hypothesis can be tested cheaply with a controlled experiment. If the answer is yes, run the experiment first (Phase 2.75). If the hypothesis involves behavioral changes (prompt tuning, new input types, threshold adjustments, pipeline modifications), an experiment almost always makes sense — these are hard to reason about in the abstract and cheap to test against the live system.
+
+**If verification requires real-world data that can't be generated**, create a GitHub issue (label: `test`) that defines the baseline measurement and the post-deployment comparison. The implementation can proceed while measurement runs independently — but the issue must exist so the hypothesis isn't forgotten.
 
 **If verification invalidates the hypothesis:** Do not rationalize. Report the data, state that the mechanism is not understood, and propose investigation steps. Do not write explanations to `docs/decisions.md` until the mechanism is validated through further investigation. An invalidated hypothesis is a signal that the mental model is wrong — that's valuable information, but the correct response is "we don't know why yet," not a plausible story.
+
+### Phase 2.75: Experiment (when applicable)
+
+If the hypothesis from Phase 2.5 can be validated with a controlled experiment before committing to implementation, design and run it now. This is especially valuable when:
+- The change is behavioral (prompt, threshold, model, input handling) — the system may already do what you need, or may fail in ways you didn't predict
+- The corpus has existing data that can serve as ground truth for comparison
+- The cost of testing is low relative to the cost of building the wrong thing
+
+**Skip this phase** for clear bug fixes, mechanical refactors, or changes where the outcome is certain.
+
+**Experiment workflow:**
+
+1. **Design** — what are you testing, what are the dimensions of comparison, and what does success look like? Use the hypothesis and expected outcome from Phase 2.5 as the frame. If the experiment needs specialist input on what to measure or what edge cases to cover, run a lightweight specialist review (Phase 3) first and return here.
+2. **Generate test data** — what inputs do you need? Can you derive them from existing corpus data (translate, transform, recombine) or do you need to craft them? Keep the test set small but representative.
+3. **Execute** — run the test inputs through the live pipeline. Capture the outputs.
+4. **Measure** — compare outputs against expectations and against any ground-truth baselines. Be specific: tag overlap, title quality, body fidelity, embedding similarity, link accuracy — whatever dimensions the hypothesis predicts.
+5. **Analyze** — does the data support the hypothesis? Partially? Not at all? What surprised you?
+6. **Clean up** — remove test data from the corpus if it doesn't belong there. The experiment should leave the system in its original state.
+7. **Post findings to the issue** — results, interpretation, and the decision: proceed to implementation, revise the hypothesis, or close as unnecessary. Apply the same privacy constraint — aggregate results and structural observations only.
+
+**If the experiment validates the hypothesis**, proceed to Phase 3 (specialist review) and Phase 4 (implementation plan) with the data in hand. The experiment results inform the specialist review — the agents now work from evidence, not speculation.
+
+**If the experiment invalidates the hypothesis**, revise. The experiment may reveal that the system already handles the case well enough (close the issue), that the problem is different than expected (reframe), or that the approach won't work (explore alternatives). Post findings to the issue either way — negative results are valuable.
 
 ### Phase 3: Specialist review
 
@@ -139,5 +164,7 @@ After merging, do the full housekeeping sweep:
 
 ### Calibration notes
 
-- **Design-only issues** (labeled `question`): Phase 2 is especially important — design questions are where wrong frames do the most damage. Phase 3 is the main output. Skip Phases 5-7.
+- **Surface design decisions, don't absorb them.** Throughout every phase, distinguish between decisions you can derive from first principles (existing docs, code conventions, philosophy) and decisions that could reasonably go multiple ways. Derivable decisions — make them and move on. Genuine design decisions — present the options with your recommendation and wait for the user before proceeding. The user may have context you don't, may want to push back, or may want to ask clarifying questions. This applies in Phase 2 (hypothesis framing), Phase 2.75 (experiment design), Phase 3 (specialist review trade-offs), and Phase 4 (implementation plan). Don't overdo it — mechanical choices don't need approval. But any decision that shapes the product's behavior, architecture, or trust contract should have the user's consent.
+- **Design-only issues** (labeled `question`): Phase 2 is especially important — design questions are where wrong frames do the most damage. Phase 2.75 (experiment) and Phase 3 (specialist review) are the main outputs. Skip Phases 5-7.
+- **Experiment-driven issues**: When the issue's next step is "validate with data," Phase 2.75 is the core of the work. The experiment may be the entire deliverable — the issue might graduate from `question` to `enhancement` based on findings, or close if the hypothesis is invalidated. Not every issue needs implementation to make progress.
 - If the user says "just do it" or "skip the review" — respect that and go straight to implementation.

@@ -9,6 +9,7 @@ $ARGUMENTS — optional hint about what the input is or what to focus on (e.g., 
 ## When to use this vs other commands
 
 - **`/analyze`** — you have input to process and want insights extracted. No implementation.
+- **`/product-intake`** — you *used the product* and want to turn that experience into tracked issues. Deeper than analyze — traces code paths, assesses maturity, produces agent-ready issues.
 - **`/harvest-ideas`** — you want to search the *corpus* for product ideas. No external input.
 - **`/audit-captures`** — you want to evaluate *capture quality* against the philosophy. Structured evaluation.
 - **`/work-on-issue`** — you want to *implement* something, not just analyze.
