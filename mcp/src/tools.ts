@@ -10,8 +10,12 @@ import { runCapturePipeline } from './pipeline';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_RE = /^[a-zA-Z0-9_-]+$/;
 
-function toolSuccess(result: unknown): object {
-  return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: false };
+function toolSuccess(result: unknown, extraContent?: Array<{ type: string; data: string; mimeType: string }>): object {
+  const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
+    { type: 'text', text: JSON.stringify(result) },
+  ];
+  if (extraContent) content.push(...extraContent);
+  return { content, isError: false };
 }
 function toolError(message: string): object {
   return { content: [{ type: 'text', text: message }], isError: true };
@@ -171,7 +175,26 @@ export async function handleGetNote(
   try {
     const [note, links] = await Promise.all([fetchNote(db, id), fetchNoteLinks(db, id)]);
     if (!note) return toolError(`Note not found: ${id}`);
-    return toolSuccess({ ...note, links });
+
+    // If the note has an image, fetch it and return as inline MCP image content
+    let imageContent: Array<{ type: string; data: string; mimeType: string }> | undefined;
+    if (note.image_url) {
+      try {
+        const imgResponse = await fetch(note.image_url);
+        if (imgResponse.ok) {
+          const buffer = await imgResponse.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+          const base64 = btoa(binary);
+          imageContent = [{ type: 'image', data: base64, mimeType: 'image/jpeg' }];
+        }
+      } catch (imgErr) {
+        console.warn(JSON.stringify({ event: 'image_fetch_error', error: String(imgErr), image_url: note.image_url }));
+      }
+    }
+
+    return toolSuccess({ ...note, links }, imageContent);
   } catch (err) {
     console.error(JSON.stringify({ event: 'get_note_error', error: String(err), id }));
     return toolError('Database error. Try again.');
