@@ -742,3 +742,152 @@ describe('dashboard-api db — fetchRecent', () => {
     expect(result).toHaveLength(1);
   });
 });
+
+// ── dashboard-api routing ─────────────────────────────────────────────────────
+
+import worker from '../dashboard-api/src/index';
+import * as dbModule from '../dashboard-api/src/db';
+import * as githubModule from '../dashboard-api/src/github';
+
+const ROUTING_ENV = {
+  SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+  DASHBOARD_API_KEY: 'test-routing-key',
+  CORS_ORIGIN: 'https://contemplace.example.com',
+  BACKUP_REPO: 'owner/repo',
+  GITHUB_BACKUP_PAT: 'ghp_testtoken',
+};
+
+const VALID_UUID = '00000000-0000-0000-0000-000000000001';
+
+function routingRequest(method: string, path: string, opts: { auth?: boolean; headers?: Record<string, string> } = {}): Request {
+  const headers: Record<string, string> = { ...(opts.headers ?? {}) };
+  if (opts.auth !== false) headers['Authorization'] = `Bearer test-routing-key`;
+  return new Request(`https://example.com${path}`, { method, headers });
+}
+
+describe('dashboard-api routing', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    // Stub createSupabaseClient so no real Supabase calls are made
+    vi.spyOn(dbModule, 'createSupabaseClient').mockReturnValue({} as never);
+  });
+
+  // ── CORS preflight ────────────────────────────────────────────────────────
+
+  it('OPTIONS returns 200 with CORS headers', async () => {
+    const res = await worker.fetch(new Request('https://example.com/stats', { method: 'OPTIONS' }), ROUTING_ENV as never);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ROUTING_ENV.CORS_ORIGIN);
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
+  });
+
+  // ── Auth gate ─────────────────────────────────────────────────────────────
+
+  it('GET without auth returns 401 with CORS header', async () => {
+    const res = await worker.fetch(routingRequest('GET', '/stats', { auth: false }), ROUTING_ENV as never);
+    expect(res.status).toBe(401);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ROUTING_ENV.CORS_ORIGIN);
+  });
+
+  it('GET with wrong token returns 403 with CORS header', async () => {
+    const req = new Request('https://example.com/stats', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer wrong-token' },
+    });
+    const res = await worker.fetch(req, ROUTING_ENV as never);
+    expect(res.status).toBe(403);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ROUTING_ENV.CORS_ORIGIN);
+  });
+
+  // ── Method check ──────────────────────────────────────────────────────────
+
+  it('POST returns 405', async () => {
+    const res = await worker.fetch(routingRequest('POST', '/stats'), ROUTING_ENV as never);
+    expect(res.status).toBe(405);
+  });
+
+  // ── 404 ───────────────────────────────────────────────────────────────────
+
+  it('GET /unknown returns 404', async () => {
+    const res = await worker.fetch(routingRequest('GET', '/unknown'), ROUTING_ENV as never);
+    expect(res.status).toBe(404);
+  });
+
+  // ── /clusters/detail validation ───────────────────────────────────────────
+
+  it('GET /clusters/detail without note_ids returns 400', async () => {
+    const res = await worker.fetch(routingRequest('GET', '/clusters/detail'), ROUTING_ENV as never);
+    expect(res.status).toBe(400);
+  });
+
+  it('GET /clusters/detail with more than 50 note_ids returns 400', async () => {
+    const ids = Array.from({ length: 51 }, (_, i) =>
+      `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`
+    ).join(',');
+    const res = await worker.fetch(routingRequest('GET', `/clusters/detail?note_ids=${ids}`), ROUTING_ENV as never);
+    expect(res.status).toBe(400);
+  });
+
+  it('GET /clusters/detail with invalid UUID returns 400', async () => {
+    const res = await worker.fetch(routingRequest('GET', '/clusters/detail?note_ids=not-a-uuid'), ROUTING_ENV as never);
+    expect(res.status).toBe(400);
+  });
+
+  // ── /clusters validation ──────────────────────────────────────────────────
+
+  it('GET /clusters?resolution=abc returns 400', async () => {
+    const res = await worker.fetch(routingRequest('GET', '/clusters?resolution=abc'), ROUTING_ENV as never);
+    expect(res.status).toBe(400);
+  });
+
+  // ── Happy-path routing ────────────────────────────────────────────────────
+
+  it('GET /stats returns 200 with JSON content type', async () => {
+    vi.spyOn(dbModule, 'fetchStats').mockResolvedValue({
+      total_notes: 10,
+      total_links: 5,
+      total_clusters: 2,
+      unclustered_count: 3,
+      image_count: 1,
+      capture_rate_7d: 1.4,
+      oldest_note: '2026-01-01T00:00:00Z',
+      newest_note: '2026-03-20T00:00:00Z',
+      orphan_count: 2,
+      avg_links_per_note: 0.5,
+      gardener_last_run: '2026-03-19T02:00:00Z',
+    });
+    vi.spyOn(githubModule, 'fetchBackupRecency').mockResolvedValue('2026-03-20T02:00:00Z');
+
+    const res = await worker.fetch(routingRequest('GET', '/stats'), ROUTING_ENV as never);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.total_notes).toBe(10);
+    expect(body.backup_last_commit).toBe('2026-03-20T02:00:00Z');
+  });
+
+  it('GET /clusters?resolution=1.0 returns 200 with resolution field', async () => {
+    vi.spyOn(dbModule, 'fetchClusters').mockResolvedValue({
+      clusters: [],
+      available_resolutions: [1.0],
+    });
+
+    const res = await worker.fetch(routingRequest('GET', '/clusters?resolution=1.0'), ROUTING_ENV as never);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.resolution).toBe(1.0);
+  });
+
+  it('GET /recent returns 200', async () => {
+    vi.spyOn(dbModule, 'fetchRecent').mockResolvedValue([
+      { id: VALID_UUID, title: 'Test', tags: [], source: 'telegram', image_url: null, created_at: '2026-03-20T00:00:00Z' },
+    ]);
+
+    const res = await worker.fetch(routingRequest('GET', '/recent'), ROUTING_ENV as never);
+    expect(res.status).toBe(200);
+    const body = await res.json() as unknown[];
+    expect(body).toHaveLength(1);
+  });
+});
