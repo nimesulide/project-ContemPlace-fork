@@ -1,4 +1,4 @@
-const API_URL = document.querySelector('meta[name="api-url"]')?.content;
+const API_URL = window.CONTEMPLACE_API_URL;
 const AUTH_KEY = 'contemplace-dashboard-key';
 
 function getToken() {

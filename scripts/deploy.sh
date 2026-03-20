@@ -113,7 +113,12 @@ echo ""
 
 # ── Step 9: Deploy Dashboard Pages ───────────────────────────────────────────
 echo "▶  9/11  Deploying Dashboard..."
-wrangler pages deploy dashboard/ --project-name contemplace-dashboard
+if [[ -z "${DASHBOARD_API_URL:-}" ]]; then
+  echo "   ⚠  DASHBOARD_API_URL not set in .dev.vars — skipping dashboard deploy."
+else
+  echo "window.CONTEMPLACE_API_URL = \"${DASHBOARD_API_URL}\";" > dashboard/config.js
+  wrangler pages deploy dashboard/ --project-name contemplace-dashboard
+fi
 echo "   ✓ Dashboard deployed."
 echo ""
 
