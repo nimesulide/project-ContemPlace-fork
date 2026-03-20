@@ -22,8 +22,8 @@ Postgres you can always query and export. The whole stack runs on free tiers. LL
 
 ## How it works
 
-1. You send a thought — raw text, voice transcription, a link, whatever
-2. The [capture agent](docs/capture-agent.md) titles it, corrects voice errors, tags it, and links it to related notes — your exact words are always preserved
+1. You send a thought — raw text, voice transcription, a link, whatever — in any language
+2. The [capture agent](docs/capture-agent.md) translates to English if needed, titles it, corrects voice errors, tags it, and links it to related notes — your exact words are always preserved in the original language
 3. A nightly gardener finds connections you didn't make explicitly and detects thematic clusters across your fragments
 4. Any MCP-capable agent can search, browse, and build on your accumulated knowledge
 
