@@ -35,6 +35,12 @@ Postgres you can always query and export. The whole stack runs on free tiers. LL
 
 ## Visual dashboard
 
+<div align="center">
+<img src="docs/assets/dashboard-demo.png" alt="ContemPlace dashboard — expanded cluster showing a force-directed graph with hub notes highlighted in blue, cluster cards below" width="700" />
+<br />
+<em>The laser-cutting / instrument-design cluster expanded — hub notes in blue, gardener-detected links dashed, 44 interconnected fragments.</em>
+</div>
+
 A dark-themed web dashboard lets you see what agents can only describe. Three panels, no framework, loads instantly:
 
 - **Stats bar** — total notes, links, clusters, capture rate, and five health indicators (gardener freshness, orphan ratio, cluster coverage, link density, backup recency) with green/amber/red dots
