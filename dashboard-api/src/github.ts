@@ -12,7 +12,7 @@ export async function fetchBackupRecency(backupRepo: string, pat: string | null)
   try {
     const res = await fetch(`https://api.github.com/repos/${backupRepo}/commits?per_page=1`, {
       headers: {
-        Authorization: `token ${pat}`,
+        Authorization: `Bearer ${pat}`,
         Accept: 'application/vnd.github.v3+json',
         'User-Agent': 'contemplace-dashboard-api',
       },
