@@ -4,7 +4,7 @@
 
 ContemPlace is a personal knowledge management system. You capture idea fragments (from Telegram, Claude, or any MCP client), and the system structures, embeds, and links them into a searchable knowledge graph.
 
-Here's the honest summary before you start:
+Before you start:
 
 - **What you'll deploy:** A Postgres database, one or more Cloudflare Workers, and an AI gateway. The core gives you capture and search via any MCP client. Optional modules add Telegram capture, nightly enrichment, a visual dashboard, and automated backups.
 - **Time:** 20 minutes for the core. 45-60 minutes for the full stack.
