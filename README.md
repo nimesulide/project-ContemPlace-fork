@@ -33,6 +33,30 @@ Postgres you can always query and export. The whole stack runs on free tiers. LL
 <em>Telegram capture: voice input from your phone → structured fragment with title, tags, corrections, and links to existing notes.</em>
 </div>
 
+### In practice
+
+You spot the Hungarian word "böhönc" — ancient trees that have overgrown their neighbors, think Tolkien's Ents. You snap a photo and fire it into Telegram with a one-line note. Done.
+
+<div align="center">
+<img src="docs/assets/example-telegram-capture.png" alt="Telegram capture: photo of an ancient tree with a note about the Hungarian word böhönc — the bot replies with a structured fragment, tags, and a link to a related note" width="280" />
+</div>
+
+The gardener clusters that fragment with a note from a book you'd been reading. You hadn't connected them yourself, but the cluster reveals a thread: it wasn't just the tree you liked — it was the unusual word.
+
+<div align="center">
+<img src="docs/assets/example-cluster-discovery.png" alt="Dashboard: the böhönc capture clustered with a note about unusual words in a force-directed graph" width="600" />
+</div>
+
+Days later, you tell an agent to search your notes for anything tree-related. It pulls the original capture alongside a printmaking idea, a wooden instrument, board games — threads you'd forgotten you started.
+
+<div align="center">
+<img src="docs/assets/example-semantic-exploration.png" alt="Claude.ai: semantic search for tree-related notes surfaces direct tree connections and unexpected wood/material connections across different projects" width="500" />
+</div>
+
+You finish your coffee and walk to the forest by the river. You'd noticed a split tree there yesterday — now you're thinking about what you could make from it. The system didn't tell you to go. It reminded you why you'd want to.
+
+This is one of a thousand possible paths through the graph. The shape is always the same: capture what's on your mind, let the structure emerge, and when you explore, the connections find you. [Full walkthrough of this example →](docs/usage.md#a-real-example-from-capture-to-action)
+
 ## Visual dashboard
 
 <div align="center">

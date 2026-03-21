@@ -27,7 +27,11 @@ Pair programming works not because of code review but because explaining forces 
 
 The title is a claim extracted from your words. The body preserves what you said. The tags are inferred. Your exact input is saved alongside all of this — the structured version is for retrieval, but your words are the source of truth.
 
-<!-- TODO: screenshot of a real Telegram capture reply -->
+<div align="center">
+<img src="assets/example-telegram-capture.png" alt="Telegram capture: photo of an ancient tree with a note about the Hungarian word böhönc — the bot replies with a structured fragment, tags, and a link to a related note" width="320" />
+<br />
+<em>A photo capture in Telegram — structured with title, tags, and a link to a related note. The raw input and photo are preserved exactly as sent.</em>
+</div>
 
 ### Voice dictation
 
@@ -63,7 +67,11 @@ The most natural query. You ask an agent about a topic, and it calls `search_not
 
 You might ask: "What have I captured about learning?" The agent pulls a cluster of fragments — the pair programming note, a note about spaced repetition, a quote about beginner's mind — and synthesizes a response from your own accumulated thinking.
 
-<!-- TODO: screenshot of a Claude.ai session pulling fragments via MCP -->
+<div align="center">
+<img src="assets/example-semantic-exploration.png" alt="Claude.ai: searching for tree-related notes surfaces direct tree connections and unexpected wood/material connections across different projects" width="500" />
+<br />
+<em>One prompt — the agent queries your knowledge base and groups results by conceptual thread. No context pasted, no re-explaining.</em>
+</div>
 
 ### "Show me what's connected to this"
 
@@ -188,6 +196,72 @@ Everything comes back: notes with embeddings intact, links, RPC functions, the c
 ### Setting it up
 
 The workflow ships with the repo (`.github/workflows/backup.yml`). To enable it: create a private backup repo, set two GitHub secrets and one variable, trigger it once to verify. Full instructions in the [setup guide](setup.md#8-configure-automated-backups-optional).
+
+---
+
+## A real example: from capture to action
+
+The sections above explain the mechanics. Here's what they feel like in practice — one scenario, five steps, ending not at a screen but in a forest.
+
+### 1. Capture
+
+You're browsing the internet and spot the word "böhönc" — Hungarian for ancient trees that have overgrown their neighbors, like Tolkien's Ents. You love that. You take a screenshot, open Telegram, and send the photo with a one-line note.
+
+A few seconds later, the bot replies with a structured fragment: title, body, four tags, and a link to a related note about unusual words from a book you'd been reading.
+
+<div align="center">
+<img src="assets/example-telegram-capture.png" alt="Telegram capture: photo of an ancient tree with a note about the Hungarian word böhönc" width="320" />
+<br />
+<em>Photo stored in R2, note structured with tags and a link to a related note — raw input preserved exactly as sent.</em>
+</div>
+
+Your raw input and photo are saved exactly as you sent them. The structured version is for retrieval; your words are the source of truth. You close Telegram and don't think about it again.
+
+Behind the scenes: the Worker downloaded the photo from Telegram and stored it in R2, embedded your raw text to find related notes, sent the input plus related context to the capture LLM, then re-embedded the structured body for storage. None of this required your attention.
+
+### 2. Cluster
+
+That night, the gardener runs. It compares every note against every other note by embedding similarity. Your böhönc fragment is semantically close to a note about a book that uses unusual, evocative words — close enough that the Louvain algorithm groups them into a cluster.
+
+<div align="center">
+<img src="assets/example-cluster-discovery.png" alt="Dashboard cluster view: the böhönc capture clustered with a note about unusual words in a force-directed graph" width="700" />
+<br />
+<em>The cluster grid on the dashboard — böhönc and a note about unusual words connected in a force-directed graph, surrounded by other thematic clusters.</em>
+</div>
+
+You didn't organize this. You didn't tag them the same way on purpose. The semantic proximity was enough. And the cluster reveals something you hadn't consciously connected: you didn't just like the tree — you liked the unusual word. The thread running through your fragments is your attraction to rare, evocative vocabulary.
+
+This is the kind of pattern the system surfaces. Not a recommendation, not a suggestion — a structural observation about what your fragments have in common. You decide what to do with it.
+
+### 3. Exploration
+
+Days later, you're in a Claude session and you've just seen a beautiful forest. On impulse, you type: "I saw a great looking forest, and that made me think about trees in general. Search my notes for trees, check for anything related, see what comes up!"
+
+<div align="center">
+<img src="assets/example-semantic-exploration.png" alt="Claude.ai: semantic search for tree-related notes returns direct tree connections and unexpected wood/material connections" width="500" />
+<br />
+<em>The agent searches your knowledge base and groups results by conceptual thread — direct tree connections and unexpected wood/material connections.</em>
+</div>
+
+The agent calls `search_notes` and returns results ranked by semantic similarity. The böhönc capture comes back — but so do notes you'd nearly forgotten: someone making prints from cross-sections of felled trees, a drone flute carved from routed wood, beautiful wooden board games. The agent organizes them into "direct tree connections" and "wood/material connections" without being told to.
+
+You hadn't thought of these things together. The instrument idea was from weeks ago, the board games from a different context entirely. But the embedding space puts them in the same neighborhood, and the agent traverses that neighborhood in one call.
+
+### 4. Connection
+
+This is the moment the system earns its keep. You're looking at these results and something clicks: your interest in trees connects to making things from wood, which connects to instruments, which connects to board games. These aren't separate interests — they're facets of the same thread. The system didn't tell you that. It showed you the proximity, and your brain did the rest.
+
+These are the augmented happy accidents. Cross-linked fragments that emerge as patterns, helping your brain think creatively by surfacing connections you wouldn't have reached on your own — at least not this quickly, not this effortlessly.
+
+### 5. Action
+
+You finish your coffee. Your morning walk — which was going to be a routine stroll — now has a destination. Yesterday you noticed a huge tree by the river that had split in two. Now you're thinking: could you make a print from its cross-section? Could a piece of it become material for an instrument or a board game?
+
+The system didn't send you there. It didn't recommend a walk. It reminded you why you'd want to go — by connecting a word you liked to a material you work with to a craft you practice. The fragment you captured days ago, without thinking about it, became a thread that pulled you into the physical world.
+
+---
+
+This is one scenario out of a thousand. The path through your graph will look different every time — project planning, reading notes, design thinking, whatever you're accumulating. The shape is the same: low-friction capture, emergent structure, agent-assisted exploration, and sometimes action you wouldn't have taken otherwise.
 
 ---
 
