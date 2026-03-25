@@ -4,13 +4,16 @@ Analyze recent real-world captures against the product's design philosophy. Surf
 
 ## Arguments
 
-$ARGUMENTS — number of recent fragments to analyze (default: 10). Can also be a keyword like "all" (caps at 30) or a tag filter like "tag:bookbinding" (fetches up to 15 matching notes).
+$ARGUMENTS — number of recent fragments to analyze, or a tag filter like "tag:bookbinding" (fetches up to 15 matching notes). Default behavior: check memory for the date of the last audit (look for the "Capture audits" section in MEMORY.md). If a prior audit exists, fetch all fragments since that date (up to 50). If no prior audit exists, default to 10. An explicit number overrides the smart default.
 
 ## Workflow
 
 ### Phase 1: Load everything in parallel
 
 Maximize the first parallel batch. Launch all of these simultaneously — the ethos reads and the data fetches have no dependencies on each other:
+
+**Prior audit context:**
+0. **Check MEMORY.md** for the "Capture audits" section. Note the most recent audit date, sample size, and key findings. This informs both the smart default sample size (all fragments since that date) and the regression check in Phase 6. If no prior audit exists, note that this is the first audit.
 
 **Ethos reads:**
 1. **Read `docs/philosophy.md`** — the 10 core principles
