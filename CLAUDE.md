@@ -80,6 +80,7 @@ gardener/
   src/
     index.ts         # scheduled() + fetch() + GardenerService entrypoint — orchestrates similarity linking, clustering, and entity extraction
     clustering.ts    # Louvain community detection via Graphology (multi-resolution, gravity, tag labels)
+    cluster-titles.ts # LLM-generated descriptive titles for clusters (batched, gated on OPENROUTER_API_KEY)
     entities.ts      # Entity extraction prompt, response parsing, corpus-wide dedup/resolution
     ai.ts            # OpenRouter client for entity extraction (optional — only when OPENROUTER_API_KEY set)
     config.ts        # Config loading (thresholds, cosineFloor, clusterResolutions, entityConfig)
@@ -153,7 +154,7 @@ npx tsc --noEmit -p dashboard-api/tsconfig.json   # Dashboard API Worker
 # Unit tests (local, no network)
 npx vitest run tests/parser.test.ts tests/undo.test.ts                    # Telegram Worker
 npx vitest run tests/mcp-{auth,config,embed,tools,dispatch,index,oauth}.test.ts  # MCP Worker
-npx vitest run tests/gardener-{similarity,config,clustering,alert,trigger,entities}.test.ts  # Gardener
+npx vitest run tests/gardener-{similarity,config,clustering,cluster-titles,alert,trigger,entities}.test.ts  # Gardener
 
 # Live tests (require deployed Workers + secrets in .dev.vars)
 npx vitest run tests/smoke.test.ts              # Telegram Worker

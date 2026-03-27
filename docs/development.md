@@ -16,7 +16,8 @@ npx vitest run tests/parser.test.ts tests/undo.test.ts \
   tests/mcp-index.test.ts tests/mcp-oauth.test.ts \
   tests/gardener-similarity.test.ts tests/gardener-config.test.ts \
   tests/gardener-alert.test.ts tests/gardener-trigger.test.ts \
-  tests/gardener-clustering.test.ts tests/gardener-entities.test.ts
+  tests/gardener-clustering.test.ts tests/gardener-cluster-titles.test.ts \
+  tests/gardener-entities.test.ts
 
 # Or individually:
 npx vitest run tests/parser.test.ts              # Capture response parsing
@@ -26,6 +27,7 @@ npx vitest run tests/mcp-dispatch.test.ts        # JSON-RPC dispatch
 npx vitest run tests/mcp-oauth.test.ts           # Consent page + AuthHandler
 npx vitest run tests/mcp-index.test.ts           # OAuthProvider + resolveExternalToken
 npx vitest run tests/gardener-clustering.test.ts # Louvain clustering (graph build, gravity, labels)
+npx vitest run tests/gardener-cluster-titles.test.ts  # LLM cluster title generation
 npx vitest run tests/gardener-entities.test.ts  # Entity extraction + dictionary resolution
 npx vitest run tests/dashboard-api.test.ts      # Dashboard API: auth, config, DB queries, routing, CORS
 ```
@@ -120,6 +122,7 @@ gardener/         Gardener Worker (nightly similarity linking + cluster detectio
   src/
     index.ts      Cron-triggered entry point — orchestrates similarity linking, clustering, and entity extraction
     clustering.ts Louvain community detection via Graphology (multi-resolution, gravity, tag labels)
+    cluster-titles.ts LLM-generated descriptive titles for clusters (batched, gated on OPENROUTER_API_KEY)
     entities.ts   Entity extraction prompt, response parsing, corpus-wide dedup/resolution
     ai.ts         OpenRouter client for entity extraction (optional — only when OPENROUTER_API_KEY set)
     similarity.ts Link context builder (shared tags)
@@ -179,6 +182,7 @@ tests/
   gardener-config.test.ts      Gardener config loading (thresholds, cosineFloor, resolutions)
   gardener-clustering.test.ts  Louvain clustering (graph build, gravity, labels, singletons)
   gardener-entities.test.ts    Entity extraction + dictionary resolution
+  gardener-cluster-titles.test.ts  LLM cluster title generation + fallback
   gardener-alert.test.ts       Telegram failure alerting
   gardener-trigger.test.ts     /trigger endpoint auth + routing
   gardener-integration.test.ts capture → gardener → get_related

@@ -102,7 +102,7 @@ Pre-computed Louvain community detection results. Clean-slate per gardener run â
 |---|---|---|
 | `id` | uuid (PK) | |
 | `resolution` | float | Louvain resolution parameter (e.g. 1.0, 1.5, 2.0) |
-| `label` | text | Human-readable label from top tags (e.g. "cooking / italian / pasta") |
+| `label` | text | LLM-generated descriptive title (e.g. "Laser-cut instruments, sound design, and electronic music fabrication"). Falls back to tag-based label (e.g. "cooking / italian / pasta") when OPENROUTER_API_KEY is not set. |
 | `note_ids` | uuid[] | Member note IDs |
 | `top_tags` | text[] | Top-3 most frequent tags across members |
 | `gravity` | float | Recency-weighted size: `size Ã— avg(1 / (1 + age_days))` |

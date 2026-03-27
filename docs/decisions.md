@@ -1353,3 +1353,15 @@ The capture voice instruction alone solves the display consistency and full-text
 - `docs/capture-agent.md`: three new subsections documenting the rules and their audit provenance
 
 **Source:** 2026-03-25 capture audit, commit 8ed04cb.
+
+## LLM-generated cluster titles (2026-03-27)
+
+**Decision:** Replace tag-based cluster labels (e.g. "laser-cutting / instrument-design / lap-steel") with LLM-generated descriptive titles (e.g. "Laser-cut instruments, sound design, and electronic music fabrication"). Single batched call at gardener time — all clusters in one prompt. `top_tags` preserved as-is; only `label` changes.
+
+**Why:** Tag-derived labels are cryptic when tags are specific or when the cluster spans multiple sub-topics. A natural-language title communicates the cluster's theme at a glance, which matters for the dashboard and `list_clusters` MCP tool. Batching all clusters into one prompt keeps subrequest cost to 1 additional call per gardener run.
+
+**Trade-offs:**
+- *Label instability:* Titles may shift across gardener runs even when cluster membership is stable. This is cosmetic — clusters are clean-slated each run anyway, and low temperature mitigates drift.
+- *API dependency:* Gated on `OPENROUTER_API_KEY`. Without it, the tag-based fallback (`"tag1 / tag2 / tag3"`) is used. Same gating pattern as entity extraction.
+
+**Source:** #221, PR #222.
