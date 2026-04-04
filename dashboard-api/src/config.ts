@@ -6,9 +6,11 @@ export function loadConfig(env: Env): Config {
   return {
     supabaseUrl: requireSecret(env.SUPABASE_URL, 'SUPABASE_URL'),
     supabaseServiceRoleKey,
+    supabaseJwtSecret: requireSecret(env.SUPABASE_JWT_SECRET, 'SUPABASE_JWT_SECRET'),
     dashboardApiKey: requireSecret(env.DASHBOARD_API_KEY, 'DASHBOARD_API_KEY'),
     corsOrigin: env.CORS_ORIGIN || '*',
     backupRepo: env.BACKUP_REPO || '',
+    mcpEndpoint: env.MCP_ENDPOINT || '',
     githubBackupPat: env.GITHUB_BACKUP_PAT || null,
   };
 }

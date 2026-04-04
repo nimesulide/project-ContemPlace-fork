@@ -1,3 +1,26 @@
+import { jwtVerify } from 'jose';
+
+/**
+ * Validate a Supabase JWT (HS256).
+ * Returns { userId } on success, null on any failure.
+ */
+export async function validateJwt(
+  token: string,
+  secret: string,
+): Promise<{ userId: string } | null> {
+  try {
+    const secretKey = new TextEncoder().encode(secret);
+    const { payload } = await jwtVerify(token, secretKey, {
+      algorithms: ['HS256'],
+    });
+    const userId = payload.sub;
+    if (!userId) return null;
+    return { userId };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Constant-time string comparison.
  * Uses crypto.subtle.timingSafeEqual (Workers runtime) with a fallback

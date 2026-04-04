@@ -6,9 +6,16 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 CORS_ORIGIN = "https://contemplace-dashboard.pages.dev"
 BACKUP_REPO = "freegyes/contemplace-backups"
+MCP_ENDPOINT = "https://mcp.contemplace.app/"
 
 # Secrets (set via: wrangler secret put <NAME> -c dashboard-api/wrangler.toml):
 # SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY
+# SUPABASE_JWT_SECRET
 # DASHBOARD_API_KEY
 # GITHUB_BACKUP_PAT        (optional — enables backup freshness metric)
+
+[[services]]
+binding = "CAPTURE_SERVICE"
+service = "mcp-contemplace"
+entrypoint = "CaptureService"

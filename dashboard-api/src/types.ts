@@ -1,12 +1,32 @@
 // ── Dashboard API Worker Env ────────────────────────────────────────────────
 
+export interface CaptureServiceStub {
+  capture(rawInput: string, source: string, options?: { imageUrl?: string; userId?: string }): Promise<ServiceCaptureResult>;
+}
+
+export interface ServiceCaptureResult {
+  id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  source_ref: string | null;
+  corrections: string[] | null;
+  entities: Array<{ name: string; type: string }>;
+  links: Array<{ to_id: string; to_title: string; link_type: string }>;
+  source: string;
+  image_url: string | null;
+}
+
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPABASE_JWT_SECRET: string;
   DASHBOARD_API_KEY: string;
   CORS_ORIGIN: string;
   BACKUP_REPO: string;
+  MCP_ENDPOINT: string;
   GITHUB_BACKUP_PAT?: string;
+  CAPTURE_SERVICE?: CaptureServiceStub;
 }
 
 // ── API response types ──────────────────────────────────────────────────────
@@ -71,11 +91,25 @@ export interface RecentNote {
   created_at: string;
 }
 
+export interface ProfileResponse {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+  plan: string;
+  has_api_key: boolean;
+  mcp_endpoint: string;
+  telegram_connected: boolean;
+  telegram_chat_id: number | null;
+  created_at: string;
+}
+
 export interface Config {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  supabaseJwtSecret: string;
   dashboardApiKey: string;
   corsOrigin: string;
   backupRepo: string;
+  mcpEndpoint: string;
   githubBackupPat: string | null;
 }

@@ -134,6 +134,7 @@ export async function handleSearchNotes(
   db: SupabaseClient,
   openai: OpenAI,
   config: Config,
+  userId: string,
 ): Promise<object> {
   const query = args['query'];
   if (typeof query !== 'string' || query.length === 0) return toolError('query is required');
@@ -145,7 +146,7 @@ export async function handleSearchNotes(
 
   try {
     const embedding = await embedText(openai, config, query);
-    const results = await searchNotes(db, embedding, threshold, limit, filterTags);
+    const results = await searchNotes(db, userId, embedding, threshold, limit, filterTags);
     return toolSuccess({
       results: results.map(n => ({
         id: n.id,
@@ -167,13 +168,14 @@ export async function handleSearchNotes(
 export async function handleGetNote(
   args: Record<string, unknown>,
   db: SupabaseClient,
+  userId: string,
 ): Promise<object> {
   const id = args['id'];
   if (typeof id !== 'string') return toolError('id is required');
   if (!UUID_RE.test(id)) return toolError(`Invalid UUID format: "${id}"`);
 
   try {
-    const [note, links] = await Promise.all([fetchNote(db, id), fetchNoteLinks(db, id)]);
+    const [note, links] = await Promise.all([fetchNote(db, userId, id), fetchNoteLinks(db, userId, id)]);
     if (!note) return toolError(`Note not found: ${id}`);
 
     // If the note has an image, fetch it and return as inline MCP image content.
@@ -222,11 +224,12 @@ export async function handleGetNote(
 export async function handleListRecent(
   args: Record<string, unknown>,
   db: SupabaseClient,
+  userId: string,
 ): Promise<object> {
   const limit = clamp(args['limit'] as number | undefined, 1, 50, 10);
 
   try {
-    const notes = await listRecentNotes(db, limit);
+    const notes = await listRecentNotes(db, userId, limit);
     return toolSuccess({ notes, count: notes.length });
   } catch (err) {
     console.error(JSON.stringify({ event: 'list_recent_error', error: String(err) }));
@@ -237,6 +240,7 @@ export async function handleListRecent(
 export async function handleGetRelated(
   args: Record<string, unknown>,
   db: SupabaseClient,
+  userId: string,
 ): Promise<object> {
   const id = args['id'];
   if (typeof id !== 'string') return toolError('id is required');
@@ -244,9 +248,9 @@ export async function handleGetRelated(
   const limit = clamp(args['limit'] as number | undefined, 1, 50, 10);
 
   try {
-    const note = await fetchNote(db, id);
+    const note = await fetchNote(db, userId, id);
     if (!note) return toolError(`Note not found: ${id}`);
-    const links = await fetchNoteLinks(db, id);
+    const links = await fetchNoteLinks(db, userId, id);
     return toolSuccess({ source_id: id, links: links.slice(0, limit), count: Math.min(links.length, limit) });
   } catch (err) {
     console.error(JSON.stringify({ event: 'get_related_error', error: String(err), id }));
@@ -259,6 +263,7 @@ export async function handleCaptureNote(
   db: SupabaseClient,
   openai: OpenAI,
   config: Config,
+  userId: string,
 ): Promise<object> {
   const text = args['raw_input'];
   if (typeof text !== 'string' || text.length === 0) return toolError('raw_input is required');
@@ -271,7 +276,7 @@ export async function handleCaptureNote(
   }
 
   try {
-    const result = await runCapturePipeline(text, source, db, openai, config);
+    const result = await runCapturePipeline(text, source, db, openai, config, { userId });
 
     return toolSuccess({
       id: result.id,
@@ -291,13 +296,14 @@ export async function handleRemoveNote(
   args: Record<string, unknown>,
   db: SupabaseClient,
   config: Config,
+  userId: string,
 ): Promise<object> {
   const id = args['id'];
   if (typeof id !== 'string') return toolError('id is required');
   if (!UUID_RE.test(id)) return toolError(`Invalid UUID format: "${id}"`);
 
   try {
-    const note = await fetchNoteForArchive(db, id);
+    const note = await fetchNoteForArchive(db, userId, id);
     if (!note) return toolError(`Note not found: ${id}`);
     if (note.archived_at !== null) return toolSuccess({ archived: true, id });
 
@@ -305,11 +311,11 @@ export async function handleRemoveNote(
     const windowMs = config.hardDeleteWindowMinutes * 60 * 1000;
 
     if (ageMs < windowMs) {
-      await hardDeleteNote(db, id);
+      await hardDeleteNote(db, userId, id);
       console.log(JSON.stringify({ event: 'note_hard_deleted', id }));
       return toolSuccess({ deleted: true });
     } else {
-      await archiveNote(db, id);
+      await archiveNote(db, userId, id);
       console.log(JSON.stringify({ event: 'note_archived', id }));
       return toolSuccess({ archived: true, id });
     }
@@ -323,14 +329,15 @@ export async function handleTriggerGardening(
   args: Record<string, unknown>,
   db: SupabaseClient,
   config: Config,
-  gardenerService?: GardenerServiceStub,
+  gardenerService: GardenerServiceStub | undefined,
+  userId: string,
 ): Promise<object> {
   if (!gardenerService) {
     return toolError('Gardener triggering not configured. Add GARDENER_SERVICE binding in mcp/wrangler.toml.');
   }
 
   try {
-    const lastRun = await fetchLastGardenerRun(db);
+    const lastRun = await fetchLastGardenerRun(db, userId);
 
     if (lastRun) {
       const elapsedMs = Date.now() - new Date(lastRun).getTime();
@@ -341,7 +348,7 @@ export async function handleTriggerGardening(
       }
     }
 
-    const result = await gardenerService.trigger();
+    const result = await gardenerService.trigger(userId);
     return toolSuccess(result);
   } catch (err) {
     const errorMsg = String(err);
@@ -353,14 +360,15 @@ export async function handleTriggerGardening(
 export async function handleListClusters(
   args: Record<string, unknown>,
   db: SupabaseClient,
+  userId: string,
 ): Promise<object> {
   const resolution = typeof args['resolution'] === 'number' ? args['resolution'] : 1.0;
   const notesPerCluster = clamp(args['notes_per_cluster'] as number | undefined, 0, 50, 5);
 
   try {
     const [{ clusters, computed_at }, availableResolutions] = await Promise.all([
-      fetchClusters(db, resolution),
-      fetchAvailableResolutions(db),
+      fetchClusters(db, userId, resolution),
+      fetchAvailableResolutions(db, userId),
     ]);
 
     const clusteredNotes = clusters.reduce((sum, c) => sum + c.note_count, 0);

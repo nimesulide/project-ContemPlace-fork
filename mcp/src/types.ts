@@ -16,6 +16,7 @@ export interface Env {
   RECENT_FRAGMENTS_COUNT: string;
   RECENT_FRAGMENTS_WINDOW_MINUTES: string;
   GARDENING_COOLDOWN_MINUTES?: string;
+  SUPABASE_JWT_SECRET?: string;
   OAUTH_KV: KVNamespace;
   /** Injected at runtime by OAuthProvider before calling handlers */
   OAUTH_PROVIDER?: OAuthHelpers;
@@ -25,7 +26,7 @@ export interface Env {
 // Stub type for the Gardener Worker's RPC entrypoint via Service Binding.
 // Matches the return type of GardenerService.trigger() in gardener/src/index.ts.
 export interface GardenerServiceStub {
-  trigger(): Promise<GardenerRunResult>;
+  trigger(userId?: string): Promise<GardenerRunResult>;
 }
 
 export interface GardenerRunResult {

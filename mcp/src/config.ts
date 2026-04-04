@@ -13,6 +13,7 @@ export interface Config {
   recentFragmentsCount: number;
   recentFragmentsWindowMinutes: number;
   gardeningCooldownMinutes: number;
+  supabaseJwtSecret: string | null;
 }
 
 export function loadConfig(env: Env): Config {
@@ -31,6 +32,7 @@ export function loadConfig(env: Env): Config {
     recentFragmentsCount: parsePositiveInt(env.RECENT_FRAGMENTS_COUNT, 5, 'RECENT_FRAGMENTS_COUNT'),
     recentFragmentsWindowMinutes: parsePositiveInt(env.RECENT_FRAGMENTS_WINDOW_MINUTES, 60, 'RECENT_FRAGMENTS_WINDOW_MINUTES'),
     gardeningCooldownMinutes: parsePositiveInt(env.GARDENING_COOLDOWN_MINUTES, 5, 'GARDENING_COOLDOWN_MINUTES'),
+    supabaseJwtSecret: env.SUPABASE_JWT_SECRET || null,
   };
 }
 

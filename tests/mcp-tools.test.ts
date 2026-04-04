@@ -98,6 +98,7 @@ const MOCK_CONFIG: Config = {
 
 const mockDb = {} as unknown as SupabaseClient;
 const mockOpenAI = {} as unknown as OpenAI;
+const TEST_USER_ID = 'test-user-id-000';
 
 const VALID_UUID = 'aaaaaaaa-0000-0000-0000-000000000001';
 
@@ -136,19 +137,19 @@ describe('handleSearchNotes', () => {
 
   describe('input validation', () => {
     it('returns error when query is missing', async () => {
-      const r = toolResult(await handleSearchNotes({}, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({}, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/query is required/);
     });
 
     it('returns error when query is empty string', async () => {
-      const r = toolResult(await handleSearchNotes({ query: '' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: '' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/query is required/);
     });
 
     it('returns error when query exceeds 1000 characters', async () => {
-      const r = toolResult(await handleSearchNotes({ query: 'a'.repeat(1001) }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'a'.repeat(1001) }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/1000 character/);
     });
@@ -157,50 +158,50 @@ describe('handleSearchNotes', () => {
 
   describe('clamping', () => {
     it('defaults limit to 5 when not provided', async () => {
-      await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), expect.any(Number), 5, undefined);
+      await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), expect.any(Number), 5, undefined);
     });
 
     it('clamps limit above 20 down to 20', async () => {
-      await handleSearchNotes({ query: 'test', limit: 99 }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), expect.any(Number), 20, undefined);
+      await handleSearchNotes({ query: 'test', limit: 99 }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), expect.any(Number), 20, undefined);
     });
 
     it('clamps limit below 1 up to 1', async () => {
-      await handleSearchNotes({ query: 'test', limit: 0 }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), expect.any(Number), 1, undefined);
+      await handleSearchNotes({ query: 'test', limit: 0 }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), expect.any(Number), 1, undefined);
     });
 
     it('defaults threshold to config.searchThreshold when not provided', async () => {
-      await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), MOCK_CONFIG.searchThreshold, expect.any(Number), undefined);
+      await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), MOCK_CONFIG.searchThreshold, expect.any(Number), undefined);
     });
 
     it('clamps threshold above 1 down to 1', async () => {
-      await handleSearchNotes({ query: 'test', threshold: 1.5 }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), 1, expect.any(Number), undefined);
+      await handleSearchNotes({ query: 'test', threshold: 1.5 }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), 1, expect.any(Number), undefined);
     });
   });
 
   describe('happy path', () => {
     it('embeds the query before calling searchNotes', async () => {
-      await handleSearchNotes({ query: 'test query' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleSearchNotes({ query: 'test query' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(embedText)).toHaveBeenCalledWith(mockOpenAI, MOCK_CONFIG, 'test query');
       expect(vi.mocked(searchNotes)).toHaveBeenCalledOnce();
     });
 
     it('passes filter_tags as array to searchNotes', async () => {
-      await handleSearchNotes({ query: 'test', filter_tags: ['tag1', 'tag2'] }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, expect.any(Array), expect.any(Number), expect.any(Number), ['tag1', 'tag2']);
+      await handleSearchNotes({ query: 'test', filter_tags: ['tag1', 'tag2'] }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(searchNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(Array), expect.any(Number), expect.any(Number), ['tag1', 'tag2']);
     });
 
     it('returns isError: false on success', async () => {
-      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
 
     it('returns count and results array', async () => {
-      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.count).toBe(0);
       expect(body.results).toEqual([]);
@@ -220,7 +221,7 @@ describe('handleSearchNotes', () => {
         created_at: '2026-01-01',
         similarity: 0.82,
       }]);
-      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.count).toBe(1);
       expect(body.results[0]).toMatchObject({
@@ -234,13 +235,13 @@ describe('handleSearchNotes', () => {
 
     it('returns toolError when embedText throws', async () => {
       vi.mocked(embedText).mockRejectedValueOnce(new Error('API down'));
-      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns toolError when searchNotes throws', async () => {
       vi.mocked(searchNotes).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleSearchNotes({ query: 'test' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -253,18 +254,18 @@ describe('handleGetNote', () => {
 
   describe('input validation', () => {
     it('returns error when id is missing', async () => {
-      const r = toolResult(await handleGetNote({}, mockDb));
+      const r = toolResult(await handleGetNote({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/id is required/);
     });
 
     it('returns error when id is not a string', async () => {
-      const r = toolResult(await handleGetNote({ id: 123 }, mockDb));
+      const r = toolResult(await handleGetNote({ id: 123 }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns error when id fails UUID format', async () => {
-      const r = toolResult(await handleGetNote({ id: 'not-a-uuid' }, mockDb));
+      const r = toolResult(await handleGetNote({ id: 'not-a-uuid' }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Invalid UUID/);
     });
@@ -272,14 +273,14 @@ describe('handleGetNote', () => {
     it('accepts a valid lowercase UUID', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([]);
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
 
     it('accepts a valid uppercase UUID', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([]);
-      const r = toolResult(await handleGetNote({ id: VALID_UUID.toUpperCase() }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID.toUpperCase() }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
   });
@@ -288,7 +289,7 @@ describe('handleGetNote', () => {
     it('returns note fields merged with links', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([MOCK_LINK]);
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.title).toBe('A Note');
       expect(body.raw_input).toBe('the raw input');
@@ -299,21 +300,21 @@ describe('handleGetNote', () => {
     it('calls fetchNote and fetchNoteLinks with the correct id', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([]);
-      await handleGetNote({ id: VALID_UUID }, mockDb);
-      expect(vi.mocked(fetchNote)).toHaveBeenCalledWith(mockDb, VALID_UUID);
-      expect(vi.mocked(fetchNoteLinks)).toHaveBeenCalledWith(mockDb, VALID_UUID);
+      await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID);
+      expect(vi.mocked(fetchNote)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID);
+      expect(vi.mocked(fetchNoteLinks)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID);
     });
 
     it('returns toolError when fetchNote returns null', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(null);
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/not found/i);
     });
 
     it('returns toolError on DB exception', async () => {
       vi.mocked(fetchNote).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -336,7 +337,7 @@ describe('handleGetNote', () => {
         return originalFetch(url);
       });
 
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       expect(r.content).toHaveLength(2);
       expect(r.content[1]!.type).toBe('image');
@@ -356,7 +357,7 @@ describe('handleGetNote', () => {
         return originalFetch(url);
       });
 
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       expect(r.content).toHaveLength(1);
       expect(r.content[0]!.type).toBe('text');
@@ -374,7 +375,7 @@ describe('handleGetNote', () => {
         return originalFetch(url);
       });
 
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       expect(r.content).toHaveLength(1);
 
@@ -392,7 +393,7 @@ describe('handleGetNote', () => {
         return originalFetch(url);
       });
 
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       expect(r.content).toHaveLength(1); // text only, image skipped
 
@@ -403,7 +404,7 @@ describe('handleGetNote', () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW); // image_url: null
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
-      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetNote({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       expect(r.content).toHaveLength(1);
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -420,18 +421,18 @@ describe('handleListRecent', () => {
 
   describe('input validation', () => {
     it('defaults limit to 10 when not provided', async () => {
-      await handleListRecent({}, mockDb);
-      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, 10);
+      await handleListRecent({}, mockDb, TEST_USER_ID);
+      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 10);
     });
 
     it('clamps limit above 50 down to 50', async () => {
-      await handleListRecent({ limit: 999 }, mockDb);
-      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, 50);
+      await handleListRecent({ limit: 999 }, mockDb, TEST_USER_ID);
+      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 50);
     });
 
     it('clamps limit below 1 up to 1', async () => {
-      await handleListRecent({ limit: 0 }, mockDb);
-      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, 1);
+      await handleListRecent({ limit: 0 }, mockDb, TEST_USER_ID);
+      expect(vi.mocked(listRecentNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 1);
     });
 
   });
@@ -439,7 +440,7 @@ describe('handleListRecent', () => {
   describe('happy path', () => {
     it('returns notes array and count', async () => {
       vi.mocked(listRecentNotes).mockResolvedValueOnce([MOCK_NOTE_ROW]);
-      const r = toolResult(await handleListRecent({}, mockDb));
+      const r = toolResult(await handleListRecent({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.count).toBe(1);
       expect(body.notes).toHaveLength(1);
@@ -447,7 +448,7 @@ describe('handleListRecent', () => {
 
     it('returns toolError on DB exception', async () => {
       vi.mocked(listRecentNotes).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleListRecent({}, mockDb));
+      const r = toolResult(await handleListRecent({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -460,12 +461,12 @@ describe('handleGetRelated', () => {
 
   describe('input validation', () => {
     it('returns error when id is missing', async () => {
-      const r = toolResult(await handleGetRelated({}, mockDb));
+      const r = toolResult(await handleGetRelated({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns error when id fails UUID regex', async () => {
-      const r = toolResult(await handleGetRelated({ id: 'bad-id' }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: 'bad-id' }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Invalid UUID/);
     });
@@ -473,7 +474,7 @@ describe('handleGetRelated', () => {
     it('defaults limit to 10 when not provided', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([]);
-      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       // count is min(links.length, limit) = min(0, 10) = 0
       const body = JSON.parse(r.content[0]!.text);
       expect(body.count).toBe(0);
@@ -487,7 +488,7 @@ describe('handleGetRelated', () => {
         to_id: `aaaaaaaa-0000-0000-0000-${String(i).padStart(12, '0')}`,
       }));
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce(manyLinks);
-      const r = toolResult(await handleGetRelated({ id: VALID_UUID, limit: 999 }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: VALID_UUID, limit: 999 }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.count).toBe(50);
       expect(body.links).toHaveLength(50);
@@ -497,7 +498,7 @@ describe('handleGetRelated', () => {
   describe('happy path', () => {
     it('returns toolError when source note does not exist', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(null);
-      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/not found/i);
     });
@@ -505,7 +506,7 @@ describe('handleGetRelated', () => {
     it('returns source_id, links, count in toolSuccess', async () => {
       vi.mocked(fetchNote).mockResolvedValueOnce(MOCK_NOTE_ROW);
       vi.mocked(fetchNoteLinks).mockResolvedValueOnce([MOCK_LINK]);
-      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.source_id).toBe(VALID_UUID);
       expect(body.links).toHaveLength(1);
@@ -514,7 +515,7 @@ describe('handleGetRelated', () => {
 
     it('returns toolError on DB exception', async () => {
       vi.mocked(fetchNote).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb));
+      const r = toolResult(await handleGetRelated({ id: VALID_UUID }, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -527,100 +528,100 @@ describe('handleCaptureNote', () => {
 
   describe('input validation', () => {
     it('returns error when raw_input is missing', async () => {
-      const r = toolResult(await handleCaptureNote({}, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({}, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/raw_input is required/);
     });
 
     it('returns error when raw_input is empty string', async () => {
-      const r = toolResult(await handleCaptureNote({ raw_input: '' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: '' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns error when raw_input exceeds 4000 characters', async () => {
-      const r = toolResult(await handleCaptureNote({ raw_input: 'a'.repeat(4001) }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'a'.repeat(4001) }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/4000 character/);
     });
 
     it('defaults source to "mcp" when not provided', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
       );
     });
 
     it('defaults source to "mcp" when source fails SOURCE_RE pattern', async () => {
-      await handleCaptureNote({ raw_input: 'hello', source: 'bad source!' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello', source: 'bad source!' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
       );
     });
 
     it('defaults source to "mcp" when source exceeds 100 characters', async () => {
-      await handleCaptureNote({ raw_input: 'hello', source: 'a'.repeat(101) }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello', source: 'a'.repeat(101) }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), expect.any(Array), 'hello', 'mcp', undefined,
       );
     });
 
     it('uses the provided source when valid', async () => {
-      await handleCaptureNote({ raw_input: 'hello', source: 'obsidian' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello', source: 'obsidian' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), expect.any(Array), 'hello', 'obsidian', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), expect.any(Array), 'hello', 'obsidian', undefined,
       );
     });
   });
 
   describe('capture pipeline', () => {
     it('embeds text and fetches capture voice (calls both)', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(embedText)).toHaveBeenCalled();
       expect(vi.mocked(getCaptureVoice)).toHaveBeenCalled();
     });
 
     it('calls findRelatedNotes with raw embedding and config threshold', async () => {
       vi.mocked(embedText).mockResolvedValueOnce([0.1, 0.2]);
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(findRelatedNotes)).toHaveBeenCalledWith(mockDb, [0.1, 0.2], MOCK_CONFIG.matchThreshold);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(findRelatedNotes)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, [0.1, 0.2], MOCK_CONFIG.matchThreshold);
     });
 
     it('calls runCaptureAgent with text, related notes, capture voice, and recent fragments', async () => {
       vi.mocked(getCaptureVoice).mockResolvedValueOnce('## Voice rules');
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(runCaptureAgent)).toHaveBeenCalledWith(
         mockOpenAI, MOCK_CONFIG, 'hello', [], '## Voice rules', [],
       );
     });
 
     it('calls embedText a second time for augmented embedding', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(embedText)).toHaveBeenCalledTimes(2);
     });
 
     it('calls insertNote with augmented embedding', async () => {
       vi.mocked(embedText).mockResolvedValueOnce([0.1]).mockResolvedValueOnce([0.9]);
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), [0.9], 'hello', 'mcp', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), [0.9], 'hello', 'mcp', undefined,
       );
     });
 
     it('calls insertLinks after inserting note', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(insertLinks)).toHaveBeenCalledWith(mockDb, VALID_UUID, []);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(insertLinks)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID, []);
     });
 
     it('calls logEnrichments with capture and augmented enrichment types', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(logEnrichments)).toHaveBeenCalledWith(mockDb, VALID_UUID, [
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(logEnrichments)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID, [
         { enrichment_type: 'capture', model_used: MOCK_CONFIG.captureModel },
         { enrichment_type: 'embedding_augmented', model_used: MOCK_CONFIG.embedModel },
       ]);
     });
 
     it('returns toolSuccess with note details', async () => {
-      const r = toolResult(await handleCaptureNote({ raw_input: 'hello', source: 'obsidian' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'hello', source: 'obsidian' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.id).toBe(VALID_UUID);
@@ -632,8 +633,8 @@ describe('handleCaptureNote', () => {
 
   describe('recent fragments', () => {
     it('fetches recent fragments with config count and window', async () => {
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(fetchRecentFragments)).toHaveBeenCalledWith(mockDb, 5, 60);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(fetchRecentFragments)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 5, 60);
     });
 
     it('deduplicates recent fragments against related notes', async () => {
@@ -647,7 +648,7 @@ describe('handleCaptureNote', () => {
         { id: sharedId, title: 'Shared', tags: ['t'], created_at: '2026-03-19' },
         { id: 'cccccccc-0000-0000-0000-000000000003', title: 'Unique', tags: ['u'], created_at: '2026-03-19' },
       ]);
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
       // runCaptureAgent should receive only the unique fragment
       const recentArg = vi.mocked(runCaptureAgent).mock.calls[0]![5];
       expect(recentArg).toHaveLength(1);
@@ -656,7 +657,7 @@ describe('handleCaptureNote', () => {
 
     it('skips fetch when recentFragmentsCount is 0', async () => {
       const zeroConfig = { ...MOCK_CONFIG, recentFragmentsCount: 0 };
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, zeroConfig);
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, zeroConfig, TEST_USER_ID);
       expect(vi.mocked(fetchRecentFragments)).not.toHaveBeenCalled();
       expect(vi.mocked(runCaptureAgent)).toHaveBeenCalledWith(
         mockOpenAI, zeroConfig, 'hello', [], expect.any(String), [],
@@ -669,12 +670,12 @@ describe('handleCaptureNote', () => {
       vi.mocked(embedText)
         .mockResolvedValueOnce([0.1, 0.2]) // raw embed — success
         .mockRejectedValueOnce(new Error('embed failed')); // augmented embed — fail
-      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       // Should still succeed — note not lost
       expect(r.isError).toBe(false);
       // insertNote called with raw embedding [0.1, 0.2]
       expect(vi.mocked(insertNote)).toHaveBeenCalledWith(
-        mockDb, expect.any(Object), [0.1, 0.2], 'hello', 'mcp', undefined,
+        mockDb, TEST_USER_ID, expect.any(Object), [0.1, 0.2], 'hello', 'mcp', undefined,
       );
     });
 
@@ -682,8 +683,8 @@ describe('handleCaptureNote', () => {
       vi.mocked(embedText)
         .mockResolvedValueOnce([0.1])
         .mockRejectedValueOnce(new Error('embed failed'));
-      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG);
-      expect(vi.mocked(logEnrichments)).toHaveBeenCalledWith(mockDb, expect.any(String), [
+      await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID);
+      expect(vi.mocked(logEnrichments)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, expect.any(String), [
         { enrichment_type: 'capture', model_used: MOCK_CONFIG.captureModel },
         { enrichment_type: 'embedding_raw_fallback', model_used: MOCK_CONFIG.embedModel },
       ]);
@@ -693,19 +694,19 @@ describe('handleCaptureNote', () => {
   describe('error handling', () => {
     it('returns toolError when first embedText throws', async () => {
       vi.mocked(embedText).mockRejectedValueOnce(new Error('API down'));
-      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns toolError when runCaptureAgent throws', async () => {
       vi.mocked(runCaptureAgent).mockRejectedValueOnce(new Error('LLM error'));
-      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns toolError when insertNote throws', async () => {
       vi.mocked(insertNote).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG));
+      const r = toolResult(await handleCaptureNote({ raw_input: 'hello' }, mockDb, mockOpenAI, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -723,18 +724,18 @@ describe('handleRemoveNote', () => {
 
   describe('input validation', () => {
     it('returns error when id is missing', async () => {
-      const r = toolResult(await handleRemoveNote({}, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({}, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/id is required/);
     });
 
     it('returns error when id is not a string', async () => {
-      const r = toolResult(await handleRemoveNote({ id: 123 }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: 123 }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
     it('returns error when id fails UUID format', async () => {
-      const r = toolResult(await handleRemoveNote({ id: 'not-a-uuid' }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: 'not-a-uuid' }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Invalid UUID/);
     });
@@ -743,7 +744,7 @@ describe('handleRemoveNote', () => {
   describe('note lookup', () => {
     it('returns "not found" when note does not exist', async () => {
       vi.mocked(fetchNoteForArchive).mockResolvedValueOnce(null);
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/not found/i);
     });
@@ -754,7 +755,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(60),
         archived_at: minutesAgo(5),
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.archived).toBe(true);
@@ -767,7 +768,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(60),
         archived_at: minutesAgo(5),
       });
-      await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG);
+      await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID);
       expect(vi.mocked(archiveNote)).not.toHaveBeenCalled();
       expect(vi.mocked(hardDeleteNote)).not.toHaveBeenCalled();
     });
@@ -780,11 +781,11 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(2),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.deleted).toBe(true);
-      expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledWith(mockDb, VALID_UUID);
+      expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID);
       expect(vi.mocked(archiveNote)).not.toHaveBeenCalled();
     });
 
@@ -794,7 +795,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(9),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.deleted).toBe(true);
       expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledOnce();
@@ -808,12 +809,12 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(15),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.archived).toBe(true);
       expect(body.id).toBe(VALID_UUID);
-      expect(vi.mocked(archiveNote)).toHaveBeenCalledWith(mockDb, VALID_UUID);
+      expect(vi.mocked(archiveNote)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, VALID_UUID);
       expect(vi.mocked(hardDeleteNote)).not.toHaveBeenCalled();
     });
 
@@ -823,7 +824,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(11),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.archived).toBe(true);
       expect(vi.mocked(archiveNote)).toHaveBeenCalledOnce();
@@ -836,7 +837,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(60 * 24),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.archived).toBe(true);
     });
@@ -845,7 +846,7 @@ describe('handleRemoveNote', () => {
   describe('error handling', () => {
     it('returns toolError when fetchNoteForArchive throws', async () => {
       vi.mocked(fetchNoteForArchive).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Archive operation failed/);
     });
@@ -857,7 +858,7 @@ describe('handleRemoveNote', () => {
         archived_at: null,
       });
       vi.mocked(hardDeleteNote).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
 
@@ -868,7 +869,7 @@ describe('handleRemoveNote', () => {
         archived_at: null,
       });
       vi.mocked(archiveNote).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, MOCK_CONFIG, TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });
@@ -882,7 +883,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(5),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, shortWindowConfig));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, shortWindowConfig, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.archived).toBe(true);
       expect(vi.mocked(archiveNote)).toHaveBeenCalledOnce();
@@ -896,7 +897,7 @@ describe('handleRemoveNote', () => {
         created_at: minutesAgo(5),
         archived_at: null,
       });
-      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, longWindowConfig));
+      const r = toolResult(await handleRemoveNote({ id: VALID_UUID }, mockDb, longWindowConfig, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.deleted).toBe(true);
       expect(vi.mocked(hardDeleteNote)).toHaveBeenCalledOnce();
@@ -926,25 +927,25 @@ describe('handleListClusters', () => {
 
   describe('defaults', () => {
     it('defaults resolution to 1.0 when not provided', async () => {
-      await handleListClusters({}, mockDb);
-      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, 1.0);
+      await handleListClusters({}, mockDb, TEST_USER_ID);
+      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 1.0);
     });
 
     it('passes through a provided resolution', async () => {
-      await handleListClusters({ resolution: 2.0 }, mockDb);
-      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, 2.0);
+      await handleListClusters({ resolution: 2.0 }, mockDb, TEST_USER_ID);
+      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 2.0);
     });
 
     it('defaults resolution to 1.0 when non-numeric value provided', async () => {
-      await handleListClusters({ resolution: 'bad' }, mockDb);
-      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, 1.0);
+      await handleListClusters({ resolution: 'bad' }, mockDb, TEST_USER_ID);
+      expect(vi.mocked(fetchClusters)).toHaveBeenCalledWith(mockDb, TEST_USER_ID, 1.0);
     });
   });
 
   describe('empty state', () => {
     it('returns empty clusters when gardener has not run', async () => {
       vi.mocked(fetchClusters).mockResolvedValueOnce({ clusters: [], computed_at: null });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.cluster_count).toBe(0);
@@ -959,7 +960,7 @@ describe('handleListClusters', () => {
         clusters: [MOCK_CLUSTER],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.cluster_count).toBe(1);
@@ -972,7 +973,7 @@ describe('handleListClusters', () => {
     it('returns available_resolutions from DB', async () => {
       vi.mocked(fetchClusters).mockResolvedValueOnce({ clusters: [], computed_at: null });
       vi.mocked(fetchAvailableResolutions).mockResolvedValueOnce([1.0, 2.0]);
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.available_resolutions).toEqual([1.0, 2.0]);
     });
@@ -982,7 +983,7 @@ describe('handleListClusters', () => {
         clusters: [MOCK_CLUSTER],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       const cluster = body.clusters[0];
       expect(cluster.label).toBe('cooking / italian / pasta');
@@ -998,7 +999,7 @@ describe('handleListClusters', () => {
         clusters: [MOCK_CLUSTER],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       const cluster = body.clusters[0];
       expect(cluster.hub_notes).toHaveLength(1);
@@ -1012,7 +1013,7 @@ describe('handleListClusters', () => {
         clusters: [noHubCluster],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clusters[0].hub_notes).toEqual([]);
     });
@@ -1023,7 +1024,7 @@ describe('handleListClusters', () => {
         clusters: [MOCK_CLUSTER, cluster2],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clustered_notes).toBe(8);
       expect(body.cluster_count).toBe(2);
@@ -1046,7 +1047,7 @@ describe('handleListClusters', () => {
         clusters: [bigCluster],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clusters[0].notes).toHaveLength(5);
       expect(body.clusters[0].note_count).toBe(10);
@@ -1057,7 +1058,7 @@ describe('handleListClusters', () => {
         clusters: [bigCluster],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({ notes_per_cluster: 2 }, mockDb));
+      const r = toolResult(await handleListClusters({ notes_per_cluster: 2 }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clusters[0].notes).toHaveLength(2);
     });
@@ -1067,7 +1068,7 @@ describe('handleListClusters', () => {
         clusters: [bigCluster],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({ notes_per_cluster: 0 }, mockDb));
+      const r = toolResult(await handleListClusters({ notes_per_cluster: 0 }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clusters[0].notes).toHaveLength(0);
       expect(body.clusters[0].note_count).toBe(10);
@@ -1078,7 +1079,7 @@ describe('handleListClusters', () => {
         clusters: [bigCluster],
         computed_at: '2026-03-18T02:00:00.000Z',
       });
-      const r = toolResult(await handleListClusters({ notes_per_cluster: 100 }, mockDb));
+      const r = toolResult(await handleListClusters({ notes_per_cluster: 100 }, mockDb, TEST_USER_ID));
       const body = JSON.parse(r.content[0]!.text);
       expect(body.clusters[0].notes).toHaveLength(10);
     });
@@ -1087,7 +1088,7 @@ describe('handleListClusters', () => {
   describe('error handling', () => {
     it('returns toolError when fetchClusters throws', async () => {
       vi.mocked(fetchClusters).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleListClusters({}, mockDb));
+      const r = toolResult(await handleListClusters({}, mockDb, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Failed to fetch clusters/);
     });
@@ -1121,7 +1122,7 @@ describe('handleTriggerGardening', () => {
 
   describe('not configured', () => {
     it('returns toolError when gardenerService is undefined', async () => {
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, undefined));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, undefined, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/not configured/i);
     });
@@ -1130,14 +1131,14 @@ describe('handleTriggerGardening', () => {
   describe('cooldown', () => {
     it('returns toolError when last run was within cooldown period', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(minutesAgoISO(2));
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/cooldown/i);
     });
 
     it('includes minutes remaining in cooldown error', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(minutesAgoISO(3));
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(true);
       // ~2 minutes remaining on 5-minute cooldown
       expect(r.content[0]!.text).toMatch(/\d/);
@@ -1145,19 +1146,19 @@ describe('handleTriggerGardening', () => {
 
     it('allows trigger when last run was beyond cooldown period', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(minutesAgoISO(6));
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
 
     it('allows trigger when no prior run exists (null)', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(null);
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
 
     it('allows trigger when last run was exactly at cooldown boundary', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(minutesAgoISO(5));
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(false);
     });
   });
@@ -1166,13 +1167,13 @@ describe('handleTriggerGardening', () => {
     it('calls gardenerService.trigger()', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(null);
       const service = mockGardenerService();
-      await handleTriggerGardening({}, mockDb, MOCK_CONFIG, service);
+      await handleTriggerGardening({}, mockDb, MOCK_CONFIG, service, TEST_USER_ID);
       expect(service.trigger).toHaveBeenCalledOnce();
     });
 
     it('returns the full GardenerRunResult on success', async () => {
       vi.mocked(fetchLastGardenerRun).mockResolvedValueOnce(null);
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(false);
       const body = JSON.parse(r.content[0]!.text);
       expect(body.event).toBe('gardener_run_complete');
@@ -1189,14 +1190,14 @@ describe('handleTriggerGardening', () => {
       const failingService = mockGardenerService({
         trigger: vi.fn().mockRejectedValue(new Error('Gardener run failed')),
       });
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, failingService));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, failingService, TEST_USER_ID));
       expect(r.isError).toBe(true);
       expect(r.content[0]!.text).toMatch(/Gardening failed/i);
     });
 
     it('returns toolError when fetchLastGardenerRun throws', async () => {
       vi.mocked(fetchLastGardenerRun).mockRejectedValueOnce(new Error('DB error'));
-      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService()));
+      const r = toolResult(await handleTriggerGardening({}, mockDb, MOCK_CONFIG, mockGardenerService(), TEST_USER_ID));
       expect(r.isError).toBe(true);
     });
   });

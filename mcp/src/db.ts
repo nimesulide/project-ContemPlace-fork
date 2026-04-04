@@ -22,11 +22,13 @@ const DEFAULT_CAPTURE_VOICE = `## Your capture style
 
 export async function getCaptureVoice(
   db: SupabaseClient,
+  userId: string,
   profileName = 'default',
 ): Promise<string> {
   const { data, error } = await db
     .from('capture_profiles')
     .select('capture_voice')
+    .eq('user_id', userId)
     .eq('name', profileName)
     .single();
 
@@ -44,6 +46,7 @@ export async function getCaptureVoice(
 
 export async function findRelatedNotes(
   db: SupabaseClient,
+  userId: string,
   embedding: number[],
   threshold: number,
 ): Promise<MatchedNote[]> {
@@ -54,6 +57,7 @@ export async function findRelatedNotes(
     filter_source: null,
     filter_tags: null,
     search_text: null,
+    p_user_id: userId,
   });
 
   if (error) {
@@ -69,6 +73,7 @@ export async function findRelatedNotes(
 
 export async function insertNote(
   db: SupabaseClient,
+  userId: string,
   capture: CaptureResult,
   embedding: number[],
   rawInput: string,
@@ -76,6 +81,7 @@ export async function insertNote(
   imageUrl?: string,
 ): Promise<string> {
   const row: Record<string, unknown> = {
+    user_id: userId,
     title: capture.title,
     body: capture.body,
     raw_input: rawInput,
@@ -104,12 +110,14 @@ export async function insertNote(
 
 export async function insertLinks(
   db: SupabaseClient,
+  userId: string,
   noteId: string,
   links: CaptureLink[],
 ): Promise<void> {
   if (links.length === 0) return;
 
   const rows = links.map(l => ({
+    user_id: userId,
     from_id: noteId,
     to_id: l.to_id,
     link_type: l.link_type,
@@ -130,10 +138,12 @@ export async function insertLinks(
 // Batched insert — one round-trip instead of two [Review fix 11-§8]
 export async function logEnrichments(
   db: SupabaseClient,
+  userId: string,
   noteId: string,
   entries: Array<{ enrichment_type: string; model_used: string | null }>,
 ): Promise<void> {
   const rows = entries.map(e => ({
+    user_id: userId,
     note_id: noteId,
     enrichment_type: e.enrichment_type,
     model_used: e.model_used,
@@ -154,11 +164,13 @@ export async function logEnrichments(
 // Fetch a single note by UUID. Returns null if not found.
 export async function fetchNote(
   db: SupabaseClient,
+  userId: string,
   id: string,
 ): Promise<NoteRow | null> {
   const { data, error } = await db
     .from('notes')
     .select('id, title, body, raw_input, tags, entities, corrections, source, source_ref, image_url, created_at')
+    .eq('user_id', userId)
     .eq('id', id)
     .is('archived_at', null)
     .single();
@@ -170,11 +182,13 @@ export async function fetchNote(
 // Fetch all links for a note in both directions, with linked note titles.
 export async function fetchNoteLinks(
   db: SupabaseClient,
+  userId: string,
   id: string,
 ): Promise<LinkWithTitle[]> {
   const { data: linkRows, error } = await db
     .from('links')
     .select('from_id, to_id, link_type, context, confidence, created_by')
+    .eq('user_id', userId)
     .or(`from_id.eq.${id},to_id.eq.${id}`);
 
   if (error || !linkRows || linkRows.length === 0) return [];
@@ -187,6 +201,7 @@ export async function fetchNoteLinks(
   const { data: noteRows } = await db
     .from('notes')
     .select('id, title')
+    .eq('user_id', userId)
     .in('id', linkedIds)
     .is('archived_at', null);
 
@@ -236,12 +251,14 @@ export async function fetchNoteLinks(
 // When windowMinutes is 0, no time filter is applied (pure count-based).
 export async function fetchRecentFragments(
   db: SupabaseClient,
+  userId: string,
   limit: number,
   windowMinutes: number,
 ): Promise<RecentFragment[]> {
   let query = db
     .from('notes')
     .select('id, title, tags, created_at')
+    .eq('user_id', userId)
     .is('archived_at', null);
 
   if (windowMinutes > 0) {
@@ -264,11 +281,13 @@ export async function fetchRecentFragments(
 // List recent notes, newest first.
 export async function listRecentNotes(
   db: SupabaseClient,
+  userId: string,
   limit: number,
 ): Promise<NoteRow[]> {
   const { data, error } = await db
     .from('notes')
     .select('id, title, body, tags, source, source_ref, image_url, created_at')
+    .eq('user_id', userId)
     .is('archived_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -284,6 +303,7 @@ export async function listRecentNotes(
 // Semantic search via match_notes RPC.
 export async function searchNotes(
   db: SupabaseClient,
+  userId: string,
   embedding: number[],
   threshold: number,
   limit: number,
@@ -296,6 +316,7 @@ export async function searchNotes(
     filter_source: null,
     filter_tags: filterTags ?? null,
     search_text: null,
+    p_user_id: userId,
   });
 
   if (error) {
@@ -318,10 +339,11 @@ export interface ClusterWithNotes {
 }
 
 // Return distinct resolution values present in the clusters table.
-export async function fetchAvailableResolutions(db: SupabaseClient): Promise<number[]> {
+export async function fetchAvailableResolutions(db: SupabaseClient, userId: string): Promise<number[]> {
   const { data } = await db
     .from('clusters')
     .select('resolution')
+    .eq('user_id', userId)
     .order('resolution', { ascending: true });
   return [...new Set((data ?? []).map((r: { resolution: number }) => r.resolution))];
 }
@@ -330,11 +352,13 @@ export async function fetchAvailableResolutions(db: SupabaseClient): Promise<num
 // Archived notes are silently filtered out at read time.
 export async function fetchClusters(
   db: SupabaseClient,
+  userId: string,
   resolution: number,
 ): Promise<{ clusters: ClusterWithNotes[]; computed_at: string | null }> {
   const { data: clusterRows, error } = await db
     .from('clusters')
     .select('label, top_tags, note_ids, gravity, modularity, created_at')
+    .eq('user_id', userId)
     .eq('resolution', resolution)
     .order('gravity', { ascending: false });
 
@@ -419,10 +443,12 @@ export async function fetchClusters(
 // or null if no clusters exist (gardener has never completed successfully).
 export async function fetchLastGardenerRun(
   db: SupabaseClient,
+  userId: string,
 ): Promise<string | null> {
   const { data, error } = await db
     .from('clusters')
     .select('created_at')
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
@@ -442,11 +468,13 @@ export interface MostRecentNote {
 // Fetch the most recent active note from a specific source.
 export async function fetchMostRecentBySource(
   db: SupabaseClient,
+  userId: string,
   source: string,
 ): Promise<MostRecentNote | null> {
   const { data, error } = await db
     .from('notes')
     .select('id, title, created_at')
+    .eq('user_id', userId)
     .eq('source', source)
     .is('archived_at', null)
     .order('created_at', { ascending: false })
@@ -469,11 +497,13 @@ export interface NoteForArchive {
 // "not found" from "already archived".
 export async function fetchNoteForArchive(
   db: SupabaseClient,
+  userId: string,
   id: string,
 ): Promise<NoteForArchive | null> {
   const { data, error } = await db
     .from('notes')
     .select('id, created_at, archived_at')
+    .eq('user_id', userId)
     .eq('id', id)
     .single();
 
@@ -484,11 +514,13 @@ export async function fetchNoteForArchive(
 // Soft delete — set archived_at to now().
 export async function archiveNote(
   db: SupabaseClient,
+  userId: string,
   id: string,
 ): Promise<void> {
   const { error } = await db
     .from('notes')
     .update({ archived_at: new Date().toISOString() })
+    .eq('user_id', userId)
     .eq('id', id);
 
   if (error) {
@@ -499,11 +531,13 @@ export async function archiveNote(
 // Hard delete — CASCADE cleans links + enrichment_log.
 export async function hardDeleteNote(
   db: SupabaseClient,
+  userId: string,
   id: string,
 ): Promise<void> {
   const { error } = await db
     .from('notes')
     .delete()
+    .eq('user_id', userId)
     .eq('id', id);
 
   if (error) {

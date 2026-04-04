@@ -2,7 +2,7 @@ import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { createClient } from '@supabase/supabase-js';
 import { loadConfig } from './config';
-import { timingSafeEqual } from './auth';
+import { timingSafeEqual, resolvePerUserApiKey } from './auth';
 import { createOpenAIClient } from './embed';
 import { TOOL_DEFINITIONS, handleSearchNotes, handleGetNote, handleListRecent, handleGetRelated, handleCaptureNote, handleRemoveNote, handleListClusters, handleTriggerGardening } from './tools';
 import { runCapturePipeline } from './pipeline';
@@ -31,7 +31,7 @@ function jsonRpcResult(id: unknown, result: unknown): Response {
  * Handle an authenticated MCP JSON-RPC request.
  * Called by the McpApiHandler (via OAuthProvider) for both OAuth and static token callers.
  */
-export async function handleMcpRequest(request: Request, env: Env): Promise<Response> {
+export async function handleMcpRequest(request: Request, env: Env, userId = 'static-key'): Promise<Response> {
   // Parse JSON-RPC body
   let body: Record<string, unknown>;
   try {
@@ -88,28 +88,28 @@ export async function handleMcpRequest(request: Request, env: Env): Promise<Resp
     let result: object;
     switch (toolName) {
       case 'search_notes':
-        result = await handleSearchNotes(args, db, openai, config);
+        result = await handleSearchNotes(args, db, openai, config, userId);
         break;
       case 'get_note':
-        result = await handleGetNote(args, db);
+        result = await handleGetNote(args, db, userId);
         break;
       case 'list_recent':
-        result = await handleListRecent(args, db);
+        result = await handleListRecent(args, db, userId);
         break;
       case 'get_related':
-        result = await handleGetRelated(args, db);
+        result = await handleGetRelated(args, db, userId);
         break;
       case 'capture_note':
-        result = await handleCaptureNote(args, db, openai, config);
+        result = await handleCaptureNote(args, db, openai, config, userId);
         break;
       case 'remove_note':
-        result = await handleRemoveNote(args, db, config);
+        result = await handleRemoveNote(args, db, config, userId);
         break;
       case 'list_clusters':
-        result = await handleListClusters(args, db);
+        result = await handleListClusters(args, db, userId);
         break;
       case 'trigger_gardening':
-        result = await handleTriggerGardening(args, db, config, env.GARDENER_SERVICE);
+        result = await handleTriggerGardening(args, db, config, env.GARDENER_SERVICE, userId);
         break;
       default:
         return jsonRpcError(id, -32601, `Unknown tool: ${toolName}`);
@@ -127,7 +127,10 @@ export async function handleMcpRequest(request: Request, env: Env): Promise<Resp
 
 const McpApiHandler: ExportedHandler<Env> & Pick<Required<ExportedHandler<Env>>, 'fetch'> = {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return handleMcpRequest(request, env);
+    // OAuthProvider attaches user props to the request — extract userId
+    const props = (request as unknown as { props?: { userId?: string } }).props;
+    const userId = props?.userId ?? 'static-key';
+    return handleMcpRequest(request, env, userId);
   },
 };
 
@@ -153,6 +156,14 @@ const oauthProvider = new OAuthProvider<Env>({
    * The hex MCP_API_KEY has no colons, so the library skips KV lookup entirely — no latency penalty.
    */
   async resolveExternalToken({ token, env }) {
+    // Per-user API key: cp_ prefix → SHA-256 hash → DB lookup
+    if (token.startsWith('cp_')) {
+      const config = loadConfig(env);
+      const userId = await resolvePerUserApiKey(token, config);
+      if (!userId) return null;
+      return { props: { userId, authMethod: 'api-key' } };
+    }
+    // Legacy static key fallback
     if (!env.MCP_API_KEY) return null;
     if (!timingSafeEqual(token, env.MCP_API_KEY)) return null;
     return { props: { userId: 'static-key', authMethod: 'static' } };
@@ -167,18 +178,19 @@ const oauthProvider = new OAuthProvider<Env>({
 // The Telegram Worker binds to this via [[services]] in wrangler.toml.
 
 export class CaptureService extends WorkerEntrypoint<Env> {
-  async capture(rawInput: string, source: string, options?: { imageUrl?: string }): Promise<ServiceCaptureResult> {
+  async capture(rawInput: string, source: string, options?: { imageUrl?: string; userId?: string }): Promise<ServiceCaptureResult> {
     const config = loadConfig(this.env);
     const db = createClient(config.supabaseUrl, config.supabaseServiceRoleKey);
     const openai = createOpenAIClient(config);
-    return runCapturePipeline(rawInput, source, db, openai, config, options);
+    const userId = options?.userId ?? 'static-key';
+    return runCapturePipeline(rawInput, source, db, openai, config, { imageUrl: options?.imageUrl, userId });
   }
 
-  async undoLatest(): Promise<UndoResult> {
+  async undoLatest(source: string, userId: string): Promise<UndoResult> {
     const config = loadConfig(this.env);
     const db = createClient(config.supabaseUrl, config.supabaseServiceRoleKey);
 
-    const note = await fetchMostRecentBySource(db, 'telegram');
+    const note = await fetchMostRecentBySource(db, source, userId);
     if (!note) {
       return { action: 'none' };
     }
@@ -190,8 +202,8 @@ export class CaptureService extends WorkerEntrypoint<Env> {
       return { action: 'grace_period_passed', title: note.title, id: note.id };
     }
 
-    await hardDeleteNote(db, note.id);
-    console.log(JSON.stringify({ event: 'undo_hard_deleted', id: note.id, title: note.title }));
+    await hardDeleteNote(db, note.id, userId);
+    console.log(JSON.stringify({ event: 'undo_hard_deleted', id: note.id, title: note.title, userId }));
     return { action: 'deleted', title: note.title, id: note.id };
   }
 }

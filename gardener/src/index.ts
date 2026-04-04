@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { createSupabaseClient, deleteGardenerSimilarityLinks, fetchNotesForSimilarity, findSimilarPairs, insertSimilarityLinks, logEnrichments, deleteAllClusters, insertClusters, fetchNotesForEntityExtraction, fetchAllRawExtractions, fetchNoteCreatedAts, logEntityExtractions, rebuildEntityDictionary, batchUpdateNoteEntities, fetchEntityDictionary } from './db';
-import { loadConfig } from './config';
+import { createSupabaseClient, fetchActiveUserIds, deleteGardenerSimilarityLinks, fetchNotesForSimilarity, findSimilarPairs, insertSimilarityLinks, logEnrichments, deleteAllClusters, insertClusters, fetchNotesForEntityExtraction, fetchAllRawExtractions, fetchNoteCreatedAts, logEntityExtractions, rebuildEntityDictionary, batchUpdateNoteEntities, fetchEntityDictionary } from './db';
+import { loadConfig, type Config } from './config';
 import { buildContext } from './similarity';
 import { runClustering, type ClusteringResult } from './clustering';
 import { generateClusterTitles } from './cluster-titles';
@@ -9,6 +9,7 @@ import { createOpenAIClient } from './ai';
 import { sendAlert } from './alert';
 import { validateTriggerAuth } from './auth';
 import type { Env, NoteForSimilarity, SimilarityLink, RawExtraction } from './types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface GardenerRunResult {
   event: 'gardener_run_complete';
@@ -66,28 +67,31 @@ export function runSimilarityLinker(
   return { links, enrichedNoteIds };
 }
 
-// ── Orchestrator ──────────────────────────────────────────────────────────────
+// ── Per-user gardener ────────────────────────────────────────────────────────
 
 const CLUSTER_PAIR_LIMIT = 50000;
 
-async function runGardener(env: Env): Promise<GardenerRunResult> {
+async function runGardenerForUser(
+  config: Config,
+  db: SupabaseClient,
+  userId: string,
+): Promise<GardenerRunResult> {
   const startTime = Date.now();
-  const config = loadConfig(env);
-  const db = createSupabaseClient(config);
   const errors: string[] = [];
 
   // 1. Clean slate for similarity links
-  const linksDeleted = await deleteGardenerSimilarityLinks(db);
+  const linksDeleted = await deleteGardenerSimilarityLinks(db, userId);
 
   // 2. Fetch notes and all pairs at cosineFloor (shared data for both phases)
   const [notes, allPairs] = await Promise.all([
-    fetchNotesForSimilarity(db),
-    findSimilarPairs(db, config.cosineFloor, CLUSTER_PAIR_LIMIT),
+    fetchNotesForSimilarity(db, userId),
+    findSimilarPairs(db, config.cosineFloor, CLUSTER_PAIR_LIMIT, userId),
   ]);
 
   if (allPairs.length === CLUSTER_PAIR_LIMIT) {
     console.warn(JSON.stringify({
       event: 'pair_limit_reached',
+      userId,
       limit: CLUSTER_PAIR_LIMIT,
       message: 'find_similar_pairs returned exactly the limit — some pairs may be missing',
     }));
@@ -101,13 +105,13 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
 
   if (links.length > 0) {
     try {
-      await insertSimilarityLinks(db, links);
+      await insertSimilarityLinks(db, links, userId);
     } catch (err) {
       errors.push(`similarity links insert: ${String(err)}`);
     }
   }
 
-  await logEnrichments(db, [...enrichedNoteIds]);
+  await logEnrichments(db, [...enrichedNoteIds], userId);
 
   // 5. Run clustering (failure must not kill the gardener run)
   let clusteringReport: GardenerRunResult['clustering'] = {
@@ -118,7 +122,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
   };
 
   try {
-    const clustersDeleted = await deleteAllClusters(db);
+    const clustersDeleted = await deleteAllClusters(db, userId);
     const { rows, result: clusterResult } = runClustering(notes, allPairs, config.clusterResolutions);
 
     // Generate LLM titles for clusters (optional — requires OPENROUTER_API_KEY)
@@ -129,14 +133,14 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
         const aiClient = createOpenAIClient(config.entityConfig);
         enrichedRows = await generateClusterTitles(aiClient, config.entityConfig, rows, noteMap);
         const titled = enrichedRows.filter((r, i) => r.label !== rows[i]!.label).length;
-        console.log(JSON.stringify({ event: 'cluster_titles_generated', titled, total: rows.length }));
+        console.log(JSON.stringify({ event: 'cluster_titles_generated', userId, titled, total: rows.length }));
       } catch (titleErr) {
-        console.warn(JSON.stringify({ event: 'cluster_titles_failed', error: String(titleErr) }));
+        console.warn(JSON.stringify({ event: 'cluster_titles_failed', userId, error: String(titleErr) }));
         // Fall back to tag-based labels — enrichedRows is still the original rows
       }
     }
 
-    await insertClusters(db, enrichedRows);
+    await insertClusters(db, enrichedRows, userId);
 
     clusteringReport = {
       ...clusterResult,
@@ -148,6 +152,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
     clusteringReport.error = errorMsg;
     console.error(JSON.stringify({
       event: 'clustering_failed',
+      userId,
       error: errorMsg,
     }));
   }
@@ -171,12 +176,12 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
       const aiClient = createOpenAIClient(entityConfig);
 
       // 6a. Fetch notes needing extraction (incremental) — 2 DB calls
-      const notesToExtract = await fetchNotesForEntityExtraction(db, entityConfig.entityBatchSize);
+      const notesToExtract = await fetchNotesForEntityExtraction(db, entityConfig.entityBatchSize, userId);
 
       const newExtractions: RawExtraction[] = [];
       if (notesToExtract.length > 0) {
         // 6b. Fetch existing dictionary for type consistency — 1 DB call
-        const existingEntities = await fetchEntityDictionary(db);
+        const existingEntities = await fetchEntityDictionary(db, userId);
 
         // 6c. Extract entities from new notes — N LLM calls
         for (const note of notesToExtract) {
@@ -186,6 +191,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
           } catch (extractErr) {
             console.warn(JSON.stringify({
               event: 'entity_extraction_note_error',
+              userId,
               noteId: note.id,
               error: String(extractErr),
             }));
@@ -194,24 +200,24 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
 
         // 6d. Log raw extractions to enrichment_log — 1 DB call
         if (newExtractions.length > 0) {
-          await logEntityExtractions(db, newExtractions, entityConfig.entityModel);
+          await logEntityExtractions(db, newExtractions, entityConfig.entityModel, userId);
         }
       }
 
       // 6e. Resolve + rebuild dictionary only when there are new extractions
       if (newExtractions.length > 0) {
         // Fetch ALL raw extractions for full resolution — 2 DB calls
-        const allExtractions = await fetchAllRawExtractions(db);
-        const noteCreatedAts = await fetchNoteCreatedAts(db); // 1 DB call
+        const allExtractions = await fetchAllRawExtractions(db, userId);
+        const noteCreatedAts = await fetchNoteCreatedAts(db, userId); // 1 DB call
         const dictionary = resolveEntities(allExtractions, noteCreatedAts);
 
         // Clean-slate rebuild dictionary — 2 DB calls (delete + insert)
-        const { inserted } = await rebuildEntityDictionary(db, dictionary);
+        const { inserted } = await rebuildEntityDictionary(db, dictionary, userId);
 
         // Only update notes.entities for newly extracted notes — N DB calls
         // Full corpus reconciliation happens gradually as each batch is processed.
         const noteEntityMap = mapNotesToCanonicalEntities(newExtractions, dictionary);
-        const notesUpdated = await batchUpdateNoteEntities(db, noteEntityMap);
+        const notesUpdated = await batchUpdateNoteEntities(db, noteEntityMap, userId);
 
         entitiesReport = {
           notes_extracted: newExtractions.length,
@@ -223,6 +229,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
 
       console.log(JSON.stringify({
         event: 'entity_extraction_complete',
+        userId,
         notes_extracted: entitiesReport.notes_extracted,
         dictionary_entries: entitiesReport.dictionary_entries,
         notes_updated: entitiesReport.notes_updated,
@@ -232,6 +239,7 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
       entitiesReport.error = errorMsg;
       console.error(JSON.stringify({
         event: 'entity_extraction_failed',
+        userId,
         error: errorMsg,
       }));
     }
@@ -260,12 +268,94 @@ async function runGardener(env: Env): Promise<GardenerRunResult> {
   return result;
 }
 
+// ── Orchestrator ──────────────────────────────────────────────────────────────
+
+function emptyResult(): GardenerRunResult {
+  return {
+    event: 'gardener_run_complete',
+    similarity: { notes_processed: 0, links_deleted: 0, links_created: 0, enriched_notes: 0, errors: [] },
+    clustering: { clusters_created: 0, resolutions_run: 0, clusters_deleted: 0, error: null },
+    entities: { notes_extracted: 0, dictionary_entries: 0, notes_updated: 0, error: null },
+    duration_ms: 0,
+  };
+}
+
+function mergeResults(aggregate: GardenerRunResult, r: GardenerRunResult): void {
+  aggregate.similarity.notes_processed += r.similarity.notes_processed;
+  aggregate.similarity.links_deleted += r.similarity.links_deleted;
+  aggregate.similarity.links_created += r.similarity.links_created;
+  aggregate.similarity.enriched_notes += r.similarity.enriched_notes;
+  aggregate.similarity.errors.push(...r.similarity.errors);
+  aggregate.clustering.clusters_created += r.clustering.clusters_created;
+  aggregate.clustering.resolutions_run = Math.max(aggregate.clustering.resolutions_run, r.clustering.resolutions_run);
+  aggregate.clustering.clusters_deleted += r.clustering.clusters_deleted;
+  if (r.clustering.error) {
+    aggregate.clustering.error = aggregate.clustering.error
+      ? `${aggregate.clustering.error}; ${r.clustering.error}`
+      : r.clustering.error;
+  }
+  aggregate.entities.notes_extracted += r.entities.notes_extracted;
+  aggregate.entities.dictionary_entries += r.entities.dictionary_entries;
+  aggregate.entities.notes_updated += r.entities.notes_updated;
+  if (r.entities.error) {
+    aggregate.entities.error = aggregate.entities.error
+      ? `${aggregate.entities.error}; ${r.entities.error}`
+      : r.entities.error;
+  }
+}
+
+async function runGardener(env: Env, targetUserId?: string): Promise<GardenerRunResult> {
+  const startTime = Date.now();
+  const config = loadConfig(env);
+  const db = createSupabaseClient(config);
+
+  // Single-user mode: run for one user only
+  if (targetUserId) {
+    return runGardenerForUser(config, db, targetUserId);
+  }
+
+  // Multi-user mode (cron): iterate all users with active notes
+  const userIds = await fetchActiveUserIds(db);
+  console.log(JSON.stringify({ event: 'gardener_user_discovery', user_count: userIds.length }));
+
+  if (userIds.length === 0) {
+    return { ...emptyResult(), duration_ms: Date.now() - startTime };
+  }
+
+  const aggregate = emptyResult();
+  const userErrors: string[] = [];
+
+  for (const userId of userIds) {
+    try {
+      const result = await runGardenerForUser(config, db, userId);
+      mergeResults(aggregate, result);
+    } catch (err) {
+      const errorMsg = `user ${userId}: ${String(err)}`;
+      userErrors.push(errorMsg);
+      console.error(JSON.stringify({
+        event: 'gardener_user_error',
+        userId,
+        error: String(err),
+      }));
+    }
+  }
+
+  aggregate.duration_ms = Date.now() - startTime;
+
+  if (userErrors.length > 0) {
+    aggregate.similarity.errors.push(...userErrors);
+  }
+
+  console.log(JSON.stringify(aggregate));
+  return aggregate;
+}
+
 // ── GardenerService RPC entrypoint (for Service Binding from MCP Worker) ─────
 // Named export — coexists with the default export (cron + HTTP trigger).
 
 export class GardenerService extends WorkerEntrypoint<Env> {
-  async trigger(): Promise<GardenerRunResult> {
-    return runGardener(this.env);
+  async trigger(userId?: string): Promise<GardenerRunResult> {
+    return runGardener(this.env, userId);
   }
 }
 

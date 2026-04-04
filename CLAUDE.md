@@ -253,3 +253,10 @@ Full schema reference: `docs/schema.md`.
 | Test commands, project layout, file breakdown | `docs/development.md` |
 
 Repo files describe stable facts. GitHub Issues are the source of truth for status. ADRs are immutable — add new entries, never edit old ones.
+
+## Active Technologies
+- TypeScript 5.x (Workers), TypeScript 5.x + React 18 (webapp) + Cloudflare Workers SDK, `openai` (OpenRouter), `jose` (JWT), Next.js 14+, MUI v5, `@supabase/ssr` (002-multi-tenant-mvp)
+- Supabase (Postgres 16 + pgvector), Cloudflare R2 (images) (002-multi-tenant-mvp)
+
+## Recent Changes
+- 002-multi-tenant-mvp: Added TypeScript 5.x (Workers), TypeScript 5.x + React 18 (webapp) + Cloudflare Workers SDK, `openai` (OpenRouter), `jose` (JWT), Next.js 14+, MUI v5, `@supabase/ssr`

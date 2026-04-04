@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Config, StatsResponse, ClusterCard, ClusterDetailNote, ClusterDetailLink, RecentNote } from './types';
+import type { Config, StatsResponse, ClusterCard, ClusterDetailNote, ClusterDetailLink, RecentNote, ProfileResponse } from './types';
 
 export { SupabaseClient };
 
@@ -11,6 +11,7 @@ export function createSupabaseClient(config: Config): SupabaseClient {
 
 export async function fetchStats(
   db: SupabaseClient,
+  userId: string,
 ): Promise<Omit<StatsResponse, 'backup_last_commit'>> {
   // 9 parallel queries
   const [
@@ -24,19 +25,19 @@ export async function fetchStats(
     gardenerLastRunRes,
     imageCountRes,
   ] = await Promise.all([
-    db.from('notes').select('*', { count: 'exact', head: true }).is('archived_at', null),
-    db.from('links').select('*', { count: 'exact', head: true }),
-    db.from('clusters').select('note_ids, resolution').order('resolution', { ascending: true }),
-    db.from('notes').select('*', { count: 'exact', head: true }).is('archived_at', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-    db.from('notes').select('created_at').is('archived_at', null).order('created_at', { ascending: true }).limit(1),
-    db.from('notes').select('created_at').is('archived_at', null).order('created_at', { ascending: false }).limit(1),
-    db.from('notes').select('id').is('archived_at', null),
-    db.from('clusters').select('created_at').order('created_at', { ascending: false }).limit(1),
-    db.from('notes').select('*', { count: 'exact', head: true }).is('archived_at', null).not('image_url', 'is', null),
+    db.from('notes').select('*', { count: 'exact', head: true }).eq('user_id', userId).is('archived_at', null),
+    db.from('links').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+    db.from('clusters').select('note_ids, resolution').eq('user_id', userId).order('resolution', { ascending: true }),
+    db.from('notes').select('*', { count: 'exact', head: true }).eq('user_id', userId).is('archived_at', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+    db.from('notes').select('created_at').eq('user_id', userId).is('archived_at', null).order('created_at', { ascending: true }).limit(1),
+    db.from('notes').select('created_at').eq('user_id', userId).is('archived_at', null).order('created_at', { ascending: false }).limit(1),
+    db.from('notes').select('id').eq('user_id', userId).is('archived_at', null),
+    db.from('clusters').select('created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
+    db.from('notes').select('*', { count: 'exact', head: true }).eq('user_id', userId).is('archived_at', null).not('image_url', 'is', null),
   ]);
 
   // 1 sequential query — fetch all links for orphan computation
-  const allLinksRes = await db.from('links').select('from_id, to_id');
+  const allLinksRes = await db.from('links').select('from_id, to_id').eq('user_id', userId);
 
   // ── Extract values ──────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ export async function fetchStats(
 export async function fetchClusters(
   db: SupabaseClient,
   resolution: number,
+  userId: string,
 ): Promise<{ clusters: ClusterCard[]; available_resolutions: number[] }> {
   type ClusterRowRaw = {
     label: string;
@@ -121,9 +123,11 @@ export async function fetchClusters(
     db.from('clusters')
       .select('label, top_tags, note_ids, gravity')
       .eq('resolution', resolution)
+      .eq('user_id', userId)
       .order('gravity', { ascending: false }),
     db.from('clusters')
       .select('resolution')
+      .eq('user_id', userId)
       .order('resolution', { ascending: true }),
   ]);
 
@@ -143,9 +147,11 @@ export async function fetchClusters(
     db.from('notes')
       .select('id, title')
       .in('id', allNoteIds)
+      .eq('user_id', userId)
       .is('archived_at', null),
     db.from('links')
       .select('from_id, to_id')
+      .eq('user_id', userId)
       .in('from_id', allNoteIds)
       .in('to_id', allNoteIds),
   ]);
@@ -203,14 +209,17 @@ export async function fetchClusters(
 export async function fetchClusterDetail(
   db: SupabaseClient,
   noteIds: string[],
+  userId: string,
 ): Promise<{ notes: ClusterDetailNote[]; links: ClusterDetailLink[] }> {
   const [notesRes, linksRes] = await Promise.all([
     db.from('notes')
       .select('id, title, tags, image_url, created_at')
       .in('id', noteIds)
+      .eq('user_id', userId)
       .is('archived_at', null),
     db.from('links')
       .select('from_id, to_id, link_type, confidence, created_by')
+      .eq('user_id', userId)
       .in('from_id', noteIds)
       .in('to_id', noteIds),
   ]);
@@ -226,10 +235,12 @@ export async function fetchClusterDetail(
 export async function fetchRecent(
   db: SupabaseClient,
   limit: number,
+  userId: string,
 ): Promise<RecentNote[]> {
   const { data, error } = await db
     .from('notes')
     .select('id, title, tags, source, image_url, created_at')
+    .eq('user_id', userId)
     .is('archived_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -240,4 +251,81 @@ export async function fetchRecent(
   }
 
   return (data as RecentNote[] | null) ?? [];
+}
+
+// ── User profile ─────────────────────────────────────────────────────────────
+
+export async function fetchUserProfile(
+  db: SupabaseClient,
+  userId: string,
+  mcpEndpoint: string,
+): Promise<ProfileResponse | null> {
+  const [profileRes, telegramRes] = await Promise.all([
+    db.from('user_profiles')
+      .select('user_id, display_name, mcp_api_key_hash, plan, created_at')
+      .eq('user_id', userId)
+      .single(),
+    db.from('telegram_connections')
+      .select('chat_id')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ]);
+
+  if (profileRes.error || !profileRes.data) return null;
+
+  const profile = profileRes.data as {
+    user_id: string;
+    display_name: string | null;
+    mcp_api_key_hash: string | null;
+    plan: string;
+    created_at: string;
+  };
+
+  const telegram = telegramRes.data as { chat_id: number } | null;
+
+  // Fetch email from auth.users via admin API
+  const { data: authData } = await db.auth.admin.getUserById(userId);
+  const email = authData?.user?.email ?? null;
+
+  return {
+    user_id: profile.user_id,
+    display_name: profile.display_name,
+    email,
+    plan: profile.plan,
+    has_api_key: profile.mcp_api_key_hash !== null,
+    mcp_endpoint: mcpEndpoint,
+    telegram_connected: telegram !== null,
+    telegram_chat_id: telegram?.chat_id ?? null,
+    created_at: profile.created_at,
+  };
+}
+
+// ── API key regeneration ─────────────────────────────────────────────────────
+
+export async function regenerateApiKey(
+  db: SupabaseClient,
+  userId: string,
+): Promise<string> {
+  // Generate cp_<64 hex chars> key
+  const randomBytes = new Uint8Array(32);
+  crypto.getRandomValues(randomBytes);
+  const hexKey = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  const rawKey = `cp_${hexKey}`;
+
+  // SHA-256 hash for storage
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(rawKey));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const { error } = await db
+    .from('user_profiles')
+    .update({ mcp_api_key_hash: hashHex })
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to store API key: ${error.message}`);
+  }
+
+  return rawKey;
 }

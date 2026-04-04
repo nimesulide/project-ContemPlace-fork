@@ -24,19 +24,21 @@ export async function runCapturePipeline(
   db: SupabaseClient,
   openai: OpenAI,
   config: Config,
-  options?: { imageUrl?: string },
+  options?: { imageUrl?: string; userId?: string },
 ): Promise<ServiceCaptureResult> {
+  const userId = options?.userId ?? 'static-key';
+
   // Step 1: embed raw text + fetch capture voice + fetch recent fragments in parallel
   const [rawEmbedding, captureVoice, recentFragments] = await Promise.all([
     embedText(openai, config, rawInput),
-    getCaptureVoice(db),
+    getCaptureVoice(db, userId),
     config.recentFragmentsCount > 0
-      ? fetchRecentFragments(db, config.recentFragmentsCount, config.recentFragmentsWindowMinutes)
+      ? fetchRecentFragments(db, userId, config.recentFragmentsCount, config.recentFragmentsWindowMinutes)
       : Promise.resolve([]),
   ]);
 
   // Step 2: find related notes using raw embedding
-  const relatedNotes = await findRelatedNotes(db, rawEmbedding, config.matchThreshold);
+  const relatedNotes = await findRelatedNotes(db, userId, rawEmbedding, config.matchThreshold);
 
   // Step 2.5: deduplicate recent fragments against related notes
   const relatedIds = new Set(relatedNotes.map(n => n.id));
@@ -56,11 +58,11 @@ export async function runCapturePipeline(
   }
 
   // Step 5: insert note + links
-  const noteId = await insertNote(db, capture, finalEmbedding, rawInput, source, options?.imageUrl);
-  await insertLinks(db, noteId, capture.links);
+  const noteId = await insertNote(db, userId, capture, finalEmbedding, rawInput, source, options?.imageUrl);
+  await insertLinks(db, userId, noteId, capture.links);
 
   // Step 6: log enrichments
-  await logEnrichments(db, noteId, [
+  await logEnrichments(db, userId, noteId, [
     { enrichment_type: 'capture', model_used: config.captureModel },
     { enrichment_type: `embedding_${embeddingType}`, model_used: config.embedModel },
   ]);
