@@ -300,6 +300,49 @@ export async function fetchUserProfile(
   };
 }
 
+// ── Telegram link token ──────────────────────────────────────────────────────
+
+export async function createTelegramLinkToken(
+  db: SupabaseClient,
+  userId: string,
+): Promise<string> {
+  // Clean up any existing tokens for this user
+  await db.from('telegram_link_tokens').delete().eq('user_id', userId);
+
+  // Generate a random 32-byte hex token (64 chars)
+  const randomBytes = new Uint8Array(32);
+  crypto.getRandomValues(randomBytes);
+  const token = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  // Insert with 15-minute expiry
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const { error } = await db
+    .from('telegram_link_tokens')
+    .insert({ token, user_id: userId, expires_at: expiresAt });
+
+  if (error) {
+    throw new Error(`Failed to create Telegram link token: ${error.message}`);
+  }
+
+  return token;
+}
+
+// ── Telegram disconnect ──────────────────────────────────────────────────────
+
+export async function disconnectTelegram(
+  db: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { error } = await db
+    .from('telegram_connections')
+    .delete()
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to disconnect Telegram: ${error.message}`);
+  }
+}
+
 // ── API key regeneration ─────────────────────────────────────────────────────
 
 export async function regenerateApiKey(

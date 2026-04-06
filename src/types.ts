@@ -10,14 +10,13 @@ export interface UndoResult {
 }
 
 export interface CaptureServiceStub {
-  capture(rawInput: string, source: string, options?: { imageUrl?: string }): Promise<ServiceCaptureResult>;
-  undoLatest(): Promise<UndoResult>;
+  capture(rawInput: string, source: string, options?: { imageUrl?: string; userId?: string }): Promise<ServiceCaptureResult>;
+  undoLatest(source: string, userId: string): Promise<UndoResult>;
 }
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET: string;
-  ALLOWED_CHAT_IDS: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   CAPTURE_SERVICE: CaptureServiceStub;

@@ -1,7 +1,8 @@
 import type { Env, TelegramUpdate, TelegramPhotoSize, ServiceCaptureResult, UndoResult } from './types';
+import type { Config } from './config';
 import { loadConfig } from './config';
 import { sendTelegramMessage, sendTypingAction, getFilePath, downloadTelegramFile } from './telegram';
-import { createSupabaseClient, tryClaimUpdate } from './db';
+import { createSupabaseClient, tryClaimUpdate, lookupTelegramUser, validateLinkToken, createTelegramConnection, deleteLinkToken } from './db';
 
 export default {
   async fetch(
@@ -38,14 +39,10 @@ export default {
     const message = update.message;
     const chatId = message.chat.id;
 
-    // ── 4. Chat ID whitelist ─────────────────────────────────────────────────
-    if (config.allowedChatIds.length > 0 && !config.allowedChatIds.includes(chatId)) {
-      console.warn(JSON.stringify({ event: 'unauthorized_chat', chatId }));
-      return new Response('ok', { status: 200 });
-    }
+    // ── 4. Extract text / caption ────────────────────────────────────────────
+    const text = message.text ?? message.caption;
 
     // ── 5. Guard non-text messages ───────────────────────────────────────────
-    const text = message.text ?? message.caption;
     if (!text) {
       const hint = message.photo
         ? 'Photos need a caption to be captured. Resend with a description of what you\'re capturing.'
@@ -54,38 +51,115 @@ export default {
       return new Response('ok', { status: 200 });
     }
 
-    // ── 6. /start command ────────────────────────────────────────────────────
-    if (text.trim() === '/start') {
+    // ── 6. /start command (deep link support) ────────────────────────────────
+    const trimmed = text.trim();
+    if (trimmed === '/start' || trimmed.startsWith('/start ')) {
+      const payload = trimmed.slice('/start'.length).trim();
+      ctx.waitUntil(handleStart(config, env, chatId, payload));
+      return new Response('ok', { status: 200 });
+    }
+
+    // ── 7. DB lookup: resolve chatId → userId ────────────────────────────────
+    const db = createSupabaseClient(config);
+    const userId = await lookupTelegramUser(db, chatId);
+
+    if (!userId) {
       ctx.waitUntil(
-        sendTelegramMessage(config, chatId, 'ContemPlace is running. Send me any text to capture it.')
+        sendTelegramMessage(
+          config,
+          chatId,
+          'To use this bot, connect your Telegram account in the ContemPlace web app settings.',
+        ),
       );
       return new Response('ok', { status: 200 });
     }
 
-    // ── 6b. /undo command ──────────────────────────────────────────────────
-    if (text.trim() === '/undo') {
-      ctx.waitUntil(processUndo(env, config, chatId));
+    // ── 8. /undo command ─────────────────────────────────────────────────────
+    if (trimmed === '/undo') {
+      ctx.waitUntil(processUndo(env, config, chatId, userId));
       return new Response('ok', { status: 200 });
     }
 
-    // ── 7. Dedup check ───────────────────────────────────────────────────────
-    const db = createSupabaseClient(config);
+    // ── 9. Dedup check ───────────────────────────────────────────────────────
     const isNew = await tryClaimUpdate(db, update.update_id);
     if (!isNew) {
       return new Response('ok', { status: 200 });
     }
 
-    // ── 8. Return 200, process in background ─────────────────────────────────
-    ctx.waitUntil(processCapture(env, config, chatId, text, message.photo));
+    // ── 10. Return 200, process capture in background ────────────────────────
+    ctx.waitUntil(processCapture(env, config, chatId, text, userId, message.photo));
     return new Response('ok', { status: 200 });
   },
 } satisfies ExportedHandler<Env>;
 
+/**
+ * Handle the /start command. Supports deep links for account connection.
+ * - No payload: instruct user to connect via web app.
+ * - With token payload: validate, create connection, delete token.
+ */
+async function handleStart(
+  config: Config,
+  env: Env,
+  chatId: number,
+  payload: string,
+): Promise<void> {
+  if (!payload) {
+    await sendTelegramMessage(
+      config,
+      chatId,
+      'To connect your Telegram account, visit your ContemPlace web app settings and click \'Connect Telegram\'.',
+    );
+    return;
+  }
+
+  // Deep link with token
+  const db = createSupabaseClient(config);
+  const result = await validateLinkToken(db, payload);
+
+  if (!result) {
+    await sendTelegramMessage(
+      config,
+      chatId,
+      'This link has expired or is invalid. Generate a new one from your ContemPlace web app settings.',
+    );
+    return;
+  }
+
+  try {
+    await createTelegramConnection(db, result.userId, chatId);
+  } catch (err: unknown) {
+    // Unique constraint violation on chat_id — already connected
+    const code = (err as { code?: string })?.code;
+    if (code === '23505') {
+      await sendTelegramMessage(
+        config,
+        chatId,
+        'This Telegram chat is already connected to a ContemPlace account.',
+      );
+      return;
+    }
+    // Unexpected error
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(JSON.stringify({ event: 'telegram_connection_error', error: errorMessage, chatId }));
+    await sendTelegramMessage(config, chatId, 'Something went wrong connecting your account. Please try again.');
+    return;
+  }
+
+  await deleteLinkToken(db, payload);
+
+  await sendTelegramMessage(
+    config,
+    chatId,
+    'Connected! You can now send messages here and they\'ll appear in your ContemPlace dashboard.',
+  );
+}
+
 async function processCapture(
   env: Env,
-  config: { telegramBotToken: string; telegramWebhookSecret: string; allowedChatIds: number[]; supabaseUrl: string; supabaseServiceRoleKey: string },
+  config: Config,
   chatId: number,
   text: string,
+  userId: string,
   photos?: TelegramPhotoSize[],
 ): Promise<void> {
   try {
@@ -99,7 +173,8 @@ async function processCapture(
     }
 
     // Delegate capture to MCP Worker via Service Binding RPC
-    const options = imageUrl ? { imageUrl } : undefined;
+    const options: { imageUrl?: string; userId: string } = { userId };
+    if (imageUrl) options.imageUrl = imageUrl;
     const result: ServiceCaptureResult = await env.CAPTURE_SERVICE.capture(text, 'telegram', options);
 
     if (result.corrections?.length) {
@@ -132,7 +207,7 @@ async function processCapture(
  */
 async function uploadPhoto(
   env: Env,
-  config: { telegramBotToken: string; telegramWebhookSecret: string; allowedChatIds: number[]; supabaseUrl: string; supabaseServiceRoleKey: string },
+  config: Config,
   photos: TelegramPhotoSize[],
 ): Promise<string | undefined> {
   try {
@@ -170,11 +245,12 @@ async function uploadPhoto(
 
 async function processUndo(
   env: Env,
-  config: { telegramBotToken: string; telegramWebhookSecret: string; allowedChatIds: number[]; supabaseUrl: string; supabaseServiceRoleKey: string },
+  config: Config,
   chatId: number,
+  userId: string,
 ): Promise<void> {
   try {
-    const result: UndoResult = await env.CAPTURE_SERVICE.undoLatest();
+    const result: UndoResult = await env.CAPTURE_SERVICE.undoLatest('telegram', userId);
 
     let reply: string;
     switch (result.action) {

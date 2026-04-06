@@ -54,6 +54,11 @@ export default function SettingsPanel() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Telegram connection state
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [deepLink, setDeepLink] = useState<string | null>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+
   useEffect(() => {
     apiFetch<Profile>('/settings/profile')
       .then(setProfile)
@@ -80,6 +85,38 @@ export default function SettingsPanel() {
       setError(err instanceof Error ? err.message : 'Failed to generate key');
     } finally {
       setKeyLoading(false);
+    }
+  }
+
+  async function handleConnectTelegram() {
+    setTelegramLoading(true);
+    setDeepLink(null);
+    try {
+      const data = await apiFetch<{ deep_link: string; expires_in_minutes: number }>(
+        '/settings/telegram-link',
+        { method: 'POST' },
+      );
+      setDeepLink(data.deep_link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate Telegram link');
+    } finally {
+      setTelegramLoading(false);
+    }
+  }
+
+  async function handleDisconnectTelegram() {
+    setDisconnectOpen(false);
+    setTelegramLoading(true);
+    try {
+      await apiFetch('/settings/telegram', { method: 'DELETE' });
+      if (profile) {
+        setProfile({ ...profile, telegram_connected: false, telegram_chat_id: null });
+      }
+      setDeepLink(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect Telegram');
+    } finally {
+      setTelegramLoading(false);
     }
   }
 
@@ -224,6 +261,108 @@ export default function SettingsPanel() {
           </Stack>
         </CardContent>
       </Card>
+
+      {/* Telegram Connection */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Telegram Connection
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Connect your Telegram account to capture notes on the go.
+          </Typography>
+
+          {profile.telegram_connected ? (
+            <Stack spacing={2}>
+              <Typography variant="body2" color="success.main">
+                Connected{profile.telegram_chat_id ? ` (Chat ID: ${profile.telegram_chat_id})` : ''}
+              </Typography>
+              <Box>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setDisconnectOpen(true)}
+                  disabled={telegramLoading}
+                  startIcon={telegramLoading ? <CircularProgress size={18} /> : undefined}
+                >
+                  Disconnect
+                </Button>
+              </Box>
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              {deepLink ? (
+                <>
+                  <Typography variant="body2">
+                    Open this link to connect your Telegram account:
+                  </Typography>
+                  <TextField
+                    label="Telegram Deep Link"
+                    value={deepLink}
+                    fullWidth
+                    size="small"
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Tooltip title={copied === 'telegram' ? 'Copied!' : 'Copy'}>
+                              <IconButton
+                                size="small"
+                                onClick={() => copyToClipboard(deepLink, 'telegram')}
+                              >
+                                <ContentCopyIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="text"
+                    href={deepLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open in Telegram
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    This link expires in 15 minutes.
+                  </Typography>
+                </>
+              ) : (
+                <Box>
+                  <Button
+                    variant="contained"
+                    onClick={handleConnectTelegram}
+                    disabled={telegramLoading}
+                    startIcon={telegramLoading ? <CircularProgress size={18} /> : undefined}
+                  >
+                    Connect Telegram
+                  </Button>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Disconnect Telegram confirmation dialog */}
+      <Dialog open={disconnectOpen} onClose={() => setDisconnectOpen(false)}>
+        <DialogTitle>Disconnect Telegram?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Messages sent to the Telegram bot will no longer be captured under your account.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDisconnectOpen(false)}>Cancel</Button>
+          <Button onClick={handleDisconnectTelegram} variant="contained" color="error">
+            Disconnect
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Regenerate key confirmation dialog */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>

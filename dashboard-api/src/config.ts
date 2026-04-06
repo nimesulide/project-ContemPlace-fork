@@ -11,6 +11,7 @@ export function loadConfig(env: Env): Config {
     corsOrigin: env.CORS_ORIGIN || '*',
     backupRepo: env.BACKUP_REPO || '',
     mcpEndpoint: env.MCP_ENDPOINT || '',
+    telegramBotUsername: env.TELEGRAM_BOT_USERNAME || 'ContemPlaceBot',
     githubBackupPat: env.GITHUB_BACKUP_PAT || null,
   };
 }

@@ -1,6 +1,6 @@
 import { loadConfig } from './config';
 import { validateAuth, validateJwt } from './auth';
-import { createSupabaseClient, fetchStats, fetchClusters, fetchClusterDetail, fetchRecent, fetchUserProfile, regenerateApiKey } from './db';
+import { createSupabaseClient, fetchStats, fetchClusters, fetchClusterDetail, fetchRecent, fetchUserProfile, regenerateApiKey, createTelegramLinkToken, disconnectTelegram } from './db';
 import { fetchBackupRecency } from './github';
 import type { Env } from './types';
 
@@ -115,6 +115,27 @@ export default {
           }, config.corsOrigin);
         }
 
+        if (path === '/settings/telegram-link') {
+          if (userId === 'static-key') return withCors(new Response('JWT auth required', { status: 403 }), config.corsOrigin);
+          const token = await createTelegramLinkToken(db, userId);
+          const botUsername = config.telegramBotUsername;
+          return jsonResponse({
+            deep_link: `https://t.me/${botUsername}?start=${token}`,
+            expires_in_minutes: 15,
+          }, config.corsOrigin);
+        }
+
+        return withCors(new Response('Not Found', { status: 404 }), config.corsOrigin);
+      }
+
+      // ── DELETE routes ───────────────────────────────────────────────────────────
+      if (request.method === 'DELETE') {
+        if (path === '/settings/telegram') {
+          if (userId === 'static-key') return withCors(new Response('JWT auth required', { status: 403 }), config.corsOrigin);
+          await disconnectTelegram(db, userId);
+          return withCors(new Response(null, { status: 204 }), config.corsOrigin);
+        }
+
         return withCors(new Response('Not Found', { status: 404 }), config.corsOrigin);
       }
 
@@ -130,7 +151,7 @@ export default {
 function corsHeaders(origin: string): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
   };

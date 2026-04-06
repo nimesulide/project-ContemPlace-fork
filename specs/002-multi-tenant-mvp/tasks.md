@@ -128,20 +128,20 @@
 
 ### Telegram Worker — Multi-User
 
-- [ ] T043 [US4] Add Supabase client and `telegram_connections` lookup function in src/db.ts: query by chat_id → return user_id or null
-- [ ] T044 [US4] Replace `ALLOWED_CHAT_IDS` whitelist check with `telegram_connections` DB lookup in src/index.ts; if chat not found, reply with "Connect via web app settings" message
-- [ ] T045 [US4] Update `/start` command handler in src/index.ts: parse deep link token from payload, validate against `telegram_link_tokens` table (check expiry), insert `telegram_connections` row, delete used token, reply with confirmation; handle expired/invalid tokens with error message
-- [ ] T046 [US4] Pass `userId` from telegram_connections lookup to `env.CAPTURE_SERVICE.capture()` call in src/index.ts
-- [ ] T047 [US4] Remove `ALLOWED_CHAT_IDS` parsing from src/config.ts and env var from wrangler.toml; update src/types.ts CaptureServiceStub with userId in options
+- [x] T043 [US4] Add Supabase client and `telegram_connections` lookup function in src/db.ts: query by chat_id → return user_id or null
+- [x] T044 [US4] Replace `ALLOWED_CHAT_IDS` whitelist check with `telegram_connections` DB lookup in src/index.ts; if chat not found, reply with "Connect via web app settings" message
+- [x] T045 [US4] Update `/start` command handler in src/index.ts: parse deep link token from payload, validate against `telegram_link_tokens` table (check expiry), insert `telegram_connections` row, delete used token, reply with confirmation; handle expired/invalid tokens with error message
+- [x] T046 [US4] Pass `userId` from telegram_connections lookup to `env.CAPTURE_SERVICE.capture()` call in src/index.ts
+- [x] T047 [US4] Remove `ALLOWED_CHAT_IDS` parsing from src/config.ts and env var from wrangler.toml; update src/types.ts CaptureServiceStub with userId in options
 
 ### Dashboard API — Telegram Endpoints
 
-- [ ] T048 [US4] Add POST /settings/telegram-link endpoint in dashboard-api/src/routes.ts: generate random token, insert into telegram_link_tokens with 15-min expiry, return deep link URL `https://t.me/ContemPlaceBot?start=<token>`
-- [ ] T049 [US4] Add DELETE /settings/telegram endpoint in dashboard-api/src/routes.ts: delete telegram_connections row for authenticated user, return 204
+- [x] T048 [US4] Add POST /settings/telegram-link endpoint in dashboard-api/src/routes.ts: generate random token, insert into telegram_link_tokens with 15-min expiry, return deep link URL `https://t.me/ContemPlaceBot?start=<token>`
+- [x] T049 [US4] Add DELETE /settings/telegram endpoint in dashboard-api/src/routes.ts: delete telegram_connections row for authenticated user, return 204
 
 ### Web App — Telegram Settings
 
-- [ ] T050 [US4] Add Telegram connection UI to SettingsPanel in webapp/src/components/SettingsPanel.tsx: "Connect Telegram" button (calls POST /settings/telegram-link, displays deep link), connection status, "Disconnect" button (calls DELETE /settings/telegram)
+- [x] T050 [US4] Add Telegram connection UI to SettingsPanel in webapp/src/components/SettingsPanel.tsx: "Connect Telegram" button (calls POST /settings/telegram-link, displays deep link), connection status, "Disconnect" button (calls DELETE /settings/telegram)
 
 **Checkpoint**: Telegram bot resolves users from DB. Deep link connection flow works end-to-end. Messages from connected chats create notes under the correct user.
 

@@ -25,6 +25,7 @@ export interface Env {
   CORS_ORIGIN: string;
   BACKUP_REPO: string;
   MCP_ENDPOINT: string;
+  TELEGRAM_BOT_USERNAME: string;
   GITHUB_BACKUP_PAT?: string;
   CAPTURE_SERVICE?: CaptureServiceStub;
 }
@@ -111,5 +112,6 @@ export interface Config {
   corsOrigin: string;
   backupRepo: string;
   mcpEndpoint: string;
+  telegramBotUsername: string;
   githubBackupPat: string | null;
 }
